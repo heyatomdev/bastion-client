@@ -1,3 +1,5 @@
+import { BastionTokenError } from './errors.js';
+
 /** Claims Bastion puts on every RS256 token it signs (see bastion/CLAUDE.md, "JWT payload"). */
 interface CommonClaims {
   sub: string;
@@ -32,6 +34,27 @@ export interface ServiceClientJwtPayload extends CommonClaims {
 }
 
 export type BastionJwtPayload = UserJwtPayload | ServiceClientJwtPayload;
+
+/**
+ * For an app backend that accepts its *users'* tokens: the payload must be a
+ * user token (machine tokens are rejected whatever their scopes), minted for
+ * this app — Bastion sets `aud` and `appSlug` to the app slug at issuance, and
+ * one signing key serves the whole fleet, so a valid signature alone proves
+ * nothing about which app the session belongs to.
+ */
+export function assertUserTokenFor(
+  payload: BastionJwtPayload,
+  appSlug: string,
+): UserJwtPayload {
+  if (payload.type !== undefined) {
+    throw new BastionTokenError('not_user_token', 'Service token not allowed');
+  }
+  if (payload.aud !== appSlug || payload.appSlug !== appSlug) {
+    throw new BastionTokenError('wrong_app', 'Invalid app context');
+  }
+  if (!payload.sub) throw new BastionTokenError('wrong_app', 'Token without subject');
+  return payload;
+}
 
 export function isServiceClientToken(
   payload: BastionJwtPayload,

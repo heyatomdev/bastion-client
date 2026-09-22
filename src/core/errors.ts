@@ -2,7 +2,9 @@ export type TokenErrorCode =
   | 'malformed'
   | 'missing_kid'
   | 'unknown_kid'
-  | 'invalid';
+  | 'invalid'
+  | 'not_user_token'
+  | 'wrong_app';
 
 /** Verification failure. `code` is safe to log; the message is safe to return to the caller. */
 export class BastionTokenError extends Error {

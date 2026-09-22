@@ -62,6 +62,15 @@ export class AdminController {
 
 Bastion stores app events as `<serviceSlug>.<event>` — send the bare `resource.action`.
 
+## App backends: verifying your users' tokens
+
+```ts
+// BastionJwksService.verifyUserToken(token): a user session token minted for this app
+// (rejects machine tokens, checks aud + appSlug === serviceSlug, requires sub). Build your
+// own guard on it — cookie extraction, suspension, age gate are the app's business.
+// Core equivalent: assertUserTokenFor(await verifier.verify(token), 'dbd-builds').
+```
+
 ## Without NestJS
 
 ```ts
