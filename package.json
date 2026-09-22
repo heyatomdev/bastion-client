@@ -1,6 +1,6 @@
 {
   "name": "@heyatom/bastion-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Consumer SDK for the Bastion identity provider: JWKS verification, service-client auth, audit writes, NestJS guards",
   "license": "MIT",
   "author": "Andrea Tombolato <hey@heyatom.dev> (https://heyatom.dev)",
@@ -77,5 +77,15 @@
     "rxjs": "^7.8.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
+  },
+  "typesVersions": {
+    "*": {
+      "nest": [
+        "./dist/cjs/nest/index.d.ts"
+      ],
+      "*": [
+        "./dist/cjs/core/index.d.ts"
+      ]
+    }
   }
 }
