@@ -1,6 +1,6 @@
 # @heyatom/bastion-client
 
-Consumer SDK for [Bastion](https://github.com/heyatom/bastion), the HeyAtom identity provider.
+Consumer SDK for [Bastion](https://github.com/heyatomdev/bastion), the HeyAtom identity provider.
 Replaces the `src/modules/bastion/` boilerplate every service used to copy by hand.
 
 - `@heyatom/bastion-client` — framework-free core: `JwksVerifier` (kid-indexed cache, unknown-kid refetch with cooldown, stale-on-error), `BastionHttp` (`POST /auth/client`, `POST /events`, any other route), `ServiceTokenProvider` (single-flight refresh ahead of `exp`), payload types.

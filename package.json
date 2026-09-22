@@ -6,7 +6,7 @@
   "author": "Andrea Tombolato <hey@heyatom.dev> (https://heyatom.dev)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/heyatom/bastion-client.git"
+    "url": "https://github.com/heyatomdev/bastion-client.git"
   },
   "files": [
     "dist",
