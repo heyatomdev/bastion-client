@@ -22,6 +22,7 @@ export interface BastionModuleOptions {
 }
 
 export interface BastionModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
-  useFactory: (...args: unknown[]) => BastionModuleOptions | Promise<BastionModuleOptions>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useFactory: (...args: any[]) => BastionModuleOptions | Promise<BastionModuleOptions>;
   inject?: unknown[];
 }
