@@ -41,8 +41,10 @@ export class ServiceClientJwtGuard implements CanActivate {
       throw new ForbiddenException('Token not issued for this service');
     }
 
-    const required = this.reflector.getAllAndOverride<string[] | undefined>(REQUIRED_SCOPES_KEY, targets) ?? [];
-    const missing = required.filter((s) => !payload.scopes?.includes(s));
+    const required = this.reflector.getAllAndOverride<unknown>(REQUIRED_SCOPES_KEY, targets);
+    const missing = (Array.isArray(required) ? (required as string[]) : []).filter(
+      (s) => !payload.scopes?.includes(s),
+    );
     if (missing.length) throw new ForbiddenException(`Missing scope: ${missing.join(', ')}`);
 
     req.user = payload;
