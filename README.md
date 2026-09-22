@@ -6,7 +6,7 @@ Replaces the `src/modules/bastion/` boilerplate every service used to copy by ha
 - `@heyatom/bastion-client` — framework-free core: `JwksVerifier` (kid-indexed cache, unknown-kid refetch with cooldown, stale-on-error), `BastionHttp` (`POST /auth/client`, `POST /events`, any other route), `ServiceTokenProvider` (single-flight refresh ahead of `exp`), payload types.
 - `@heyatom/bastion-client/nest` — NestJS: `BastionModule`, `ServiceClientJwtGuard`, `BastionUserGuard`, `BastionAuditService`, `AuditInterceptor`, `@Public()`, `@RequireScope()`, `@Audit()`, `@CurrentClient()`, `@CurrentAdminUser()`.
 
-Ships CJS and ESM. Peer deps: `jose` (always), `@nestjs/common`, `@nestjs/core`, `rxjs`, `reflect-metadata` (for `/nest`).
+Ships CJS and ESM. `jose` v6 is ESM-only, so the CJS build relies on Node's `require(esm)` — Node ≥ 20.19 / 22.12. Peer deps: `jose` (always), `@nestjs/common`, `@nestjs/core`, `rxjs`, `reflect-metadata` (for `/nest`).
 
 ## NestJS
 

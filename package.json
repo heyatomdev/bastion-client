@@ -45,7 +45,7 @@
     "test:di": "node scripts/di-smoke.cjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
