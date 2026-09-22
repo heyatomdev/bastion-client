@@ -25,6 +25,6 @@ jobs:
       - run: pnpm lint && pnpm test && pnpm build && pnpm test:di
       - name: Check tag matches package version
         run: test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
-      - run: pnpm publish --access public --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted publishing (OIDC): no NPM_TOKEN, npm mints a short-lived
+      # credential from the run's id-token; provenance is implied.
+      - run: npm publish --access public

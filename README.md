@@ -77,4 +77,4 @@ await http.writeAuditEvent(await tokens.getToken(), { event: 'thing.done' });
 
 ## Release
 
-Bump `version`, tag `vX.Y.Z`, push the tag. The workflow runs lint/test/build/DI smoke and publishes with provenance (`NPM_TOKEN` secret).
+Bump `version`, tag `vX.Y.Z`, push the tag. The workflow runs lint/test/build/DI smoke and publishes via npm trusted publishing (OIDC, no token; provenance implied).
