@@ -1,0 +1,14 @@
+export * from '../core/index.js';
+export { BastionModule } from './bastion.module.js';
+export { BASTION_OPTIONS, type BastionModuleOptions, type BastionModuleAsyncOptions } from './options.js';
+export { BastionJwksService } from './bastion-jwks.service.js';
+export { BastionService } from './bastion.service.js';
+export { BastionAuditService } from './bastion-audit.service.js';
+export { ServiceClientJwtGuard } from './guards/service-client-jwt.guard.js';
+export { BastionUserGuard } from './guards/bastion-user.guard.js';
+export { AuditInterceptor } from './interceptors/audit.interceptor.js';
+export { Public, IS_PUBLIC_KEY } from './decorators/public.decorator.js';
+export { RequireScope, REQUIRED_SCOPES_KEY } from './decorators/require-scope.decorator.js';
+export { Audit, AUDIT_EVENT_KEY, type AuditOptions, type AuditRequest, type AuditDescriptor } from './decorators/audit.decorator.js';
+export { CurrentClient, CurrentAdminUser } from './decorators/current-user.decorator.js';
+export { resolveTenantScope, CROSS_TENANT_ROLE } from './tenant-scope.js';

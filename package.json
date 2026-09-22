@@ -1,0 +1,81 @@
+{
+  "name": "@heyatom/bastion-client",
+  "version": "0.1.0",
+  "description": "Consumer SDK for the Bastion identity provider: JWKS verification, service-client auth, audit writes, NestJS guards",
+  "license": "MIT",
+  "author": "Andrea Tombolato <hey@heyatom.dev> (https://heyatom.dev)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heyatom/bastion-client.git"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/cjs/core/index.js",
+  "module": "./dist/esm/core/index.js",
+  "types": "./dist/cjs/core/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/core/index.d.ts",
+        "default": "./dist/esm/core/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/core/index.d.ts",
+        "default": "./dist/cjs/core/index.js"
+      }
+    },
+    "./nest": {
+      "import": {
+        "types": "./dist/esm/nest/index.d.ts",
+        "default": "./dist/esm/nest/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/nest/index.d.ts",
+        "default": "./dist/cjs/nest/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json && echo '{\"type\":\"module\"}' > dist/esm/package.json",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "pnpm lint && pnpm test && pnpm build && pnpm test:di",
+    "test:di": "node scripts/di-smoke.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "jose": "^6.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    },
+    "reflect-metadata": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.2.5",
+    "@nestjs/core": "^11.2.5",
+    "@types/node": "^25.9.8",
+    "jose": "^6.2.12",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
