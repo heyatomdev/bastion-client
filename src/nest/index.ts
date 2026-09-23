@@ -3,6 +3,8 @@ export { BastionModule } from './bastion.module.js';
 export { BASTION_OPTIONS, type BastionModuleOptions, type BastionModuleAsyncOptions } from './options.js';
 export { BastionJwksService } from './bastion-jwks.service.js';
 export { BastionService } from './bastion.service.js';
+export { BastionApiClientProvider } from './bastion-api-client.provider.js';
+export { BastionHttpException, NestBastionHttp } from './bastion-http-exception.js';
 export { BastionAuditService } from './bastion-audit.service.js';
 export { ServiceClientJwtGuard } from './guards/service-client-jwt.guard.js';
 export { BastionUserGuard } from './guards/bastion-user.guard.js';

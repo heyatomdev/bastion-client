@@ -18,10 +18,10 @@ Module({
 
 NestFactory.createApplicationContext(Root, { logger: false })
   .then((app) => {
-    for (const p of [nest.BastionJwksService, nest.BastionService, nest.BastionAuditService, nest.ServiceClientJwtGuard, nest.BastionUserGuard, nest.AuditInterceptor]) {
+    for (const p of [nest.BastionJwksService, nest.BastionService, nest.BastionAuditService, nest.ServiceClientJwtGuard, nest.BastionUserGuard, nest.AuditInterceptor, nest.BastionApiClientProvider]) {
       if (!app.get(p)) throw new Error(`unresolved ${p.name}`);
     }
-    console.log('DI smoke ok: 6 providers resolved from dist/cjs');
+    console.log('DI smoke ok: 7 providers resolved from dist/cjs');
     return app.close();
   })
   .catch((err) => { console.error(err); process.exit(1); });

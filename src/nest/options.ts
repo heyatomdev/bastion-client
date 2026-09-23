@@ -11,6 +11,8 @@ export interface BastionModuleOptions {
   apiKey?: string;
   /** Required by Bastion when the app is `isGlobal` or registered in more than one tenant. */
   tenantSlug?: string;
+  /** Per-request timeout for outbound calls, default 8 000 ms. */
+  timeoutMs?: number;
   /** `BASTION_JWKS_TTL_MS`, default 300 000. */
   jwksTtlMs?: number;
   /** Expected `iss`. Default `'bastion'`; `null` disables the check. */

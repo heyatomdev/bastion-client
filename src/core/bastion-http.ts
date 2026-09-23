@@ -1,9 +1,17 @@
-import { BastionHttpError } from './errors.js';
+import { BastionErrorCode, BastionHttpError } from './errors.js';
 import type { AuditEventInput, TokenResponse } from './types.js';
 
 export interface BastionHttpOptions {
   baseUrl: string;
+  /** Per-request timeout, default 8 000 ms. */
+  timeoutMs?: number;
   fetch?: typeof fetch;
+}
+
+export interface BastionRequestInit {
+  token?: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
 }
 
 export interface ClientAuthInput {
@@ -14,42 +22,49 @@ export interface ClientAuthInput {
 
 /**
  * Outbound calls to Bastion. Nothing here verifies inbound tokens — that is
- * `JwksVerifier`. `call` is public so a service can reach any other route
- * (e.g. `POST /auth/login` from a BFF) with the same error handling; pass the
- * browser's IP as `X-Real-IP` on user-facing calls so Bastion's rate-limit
- * and audit rows see the real client, not your container.
+ * `JwksVerifier`. `call` is public so a service can reach any route with the
+ * same error handling: a non-2xx answer becomes `BastionHttpError` with the
+ * status and a stable `code`; Bastion unreachable or timed out is a 503
+ * `UNAVAILABLE`. Pass the browser's IP as `X-Real-IP` on user-facing calls.
  */
 export class BastionHttp {
   private readonly baseUrl: string;
+  private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: BastionHttpOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.fetchImpl = options.fetch ?? fetch;
+    this.timeoutMs = options.timeoutMs ?? 8_000;
+    // Late-bound on purpose: a consumer (or its tests) may replace global fetch after construction.
+    this.fetchImpl = options.fetch ?? ((...args) => fetch(...args));
   }
 
-  async call<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-    init: { token?: string; headers?: Record<string, string> } = {},
-  ): Promise<T> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...init.headers,
-    };
+  async call<T>(method: string, path: string, body?: unknown, init: BastionRequestInit = {}): Promise<T> {
+    const headers: Record<string, string> = { ...init.headers };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (init.token) headers['Authorization'] = `Bearer ${init.token}`;
-    const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(init.timeoutMs ?? this.timeoutMs),
+      });
+    } catch (err) {
+      throw new BastionHttpError(503, `Bastion unreachable: ${(err as Error).message}`, BastionErrorCode.UNAVAILABLE);
+    }
+
     if (!res.ok) {
-      const err = (await res.json().catch(() => ({}))) as { message?: string };
-      throw new BastionHttpError(res.status, err.message ?? 'Bastion error');
+      const parsed = (await res.json().catch(() => ({}))) as { message?: string | string[] };
+      const message = Array.isArray(parsed.message)
+        ? parsed.message.join(', ')
+        : (parsed.message ?? `Bastion error ${res.status}`);
+      throw new BastionHttpError(res.status, message);
     }
     if (res.status === 204) return undefined as T;
-    return (await res.json()) as T;
+    return (await res.json().catch(() => undefined)) as T;
   }
 
   clientAuth(input: ClientAuthInput): Promise<TokenResponse> {
@@ -57,10 +72,7 @@ export class BastionHttp {
   }
 
   /** `POST /events`. Bastion stores the event as `<serviceSlug>.<event>`; send the bare `resource.action`. */
-  writeAuditEvent(
-    token: string,
-    data: AuditEventInput,
-  ): Promise<{ id: string; createdAt: string }> {
+  writeAuditEvent(token: string, data: AuditEventInput): Promise<{ id: string; createdAt: string }> {
     return this.call('POST', '/events', data, { token });
   }
 }

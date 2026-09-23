@@ -6,6 +6,7 @@ import { BastionAuditService } from './bastion-audit.service.js';
 import { ServiceClientJwtGuard } from './guards/service-client-jwt.guard.js';
 import { BastionUserGuard } from './guards/bastion-user.guard.js';
 import { AuditInterceptor } from './interceptors/audit.interceptor.js';
+import { BastionApiClientProvider } from './bastion-api-client.provider.js';
 
 const PROVIDERS = [
   BastionJwksService,
@@ -14,6 +15,7 @@ const PROVIDERS = [
   ServiceClientJwtGuard,
   BastionUserGuard,
   AuditInterceptor,
+  BastionApiClientProvider,
 ];
 
 /**

@@ -37,3 +37,54 @@ describe('ServiceTokenProvider', () => {
     expect(calls.count).toBe(2);
   });
 });
+
+describe('ServiceTokenProvider — several credentials', () => {
+  it('mints per serviceSlug and serves the stale token when a re-mint fails', async () => {
+    const issuer = await makeIssuer();
+    let fail = false;
+    const calls: string[] = [];
+    const http = {
+      clientAuth: async (input: { serviceSlug: string }) => {
+        calls.push(input.serviceSlug);
+        if (fail) throw new Error('down');
+        return { accessToken: await issuer.sign({ ...serviceClaims, serviceSlug: input.serviceSlug }, { exp: '4m' }) };
+      },
+    } as unknown as BastionHttp;
+    const provider = new ServiceTokenProvider(http, {
+      'dbd-builds': { apiKey: 'k1', serviceSlug: 'dbd-builds' },
+      articuno: { apiKey: 'k2', serviceSlug: 'articuno' },
+    });
+
+    const own = await provider.getToken();
+    const art = await provider.getToken('articuno');
+    expect(own).not.toBe(art);
+    expect(calls).toEqual(['dbd-builds', 'articuno']);
+    expect(provider.tenantId).toBe('t-1');
+
+    fail = true; // inside the 5-minute margin → re-mint attempted → fails → stale served
+    await expect(provider.getToken('articuno')).resolves.toBe(art);
+    await expect(provider.getToken('beacon')).rejects.toThrow('not configured');
+  });
+});
+
+describe('ServiceTokenProvider — lazy resolver', () => {
+  it('asks the resolver per slug and uses defaultSlug when none is given', async () => {
+    const issuer = await makeIssuer();
+    const seen: string[] = [];
+    const http = {
+      clientAuth: async (input: { serviceSlug: string }) => ({ accessToken: await issuer.sign({ ...serviceClaims, serviceSlug: input.serviceSlug }, { exp: '1h' }) }),
+    } as unknown as BastionHttp;
+    const provider = new ServiceTokenProvider(http, {
+      defaultSlug: 'dbd-builds',
+      resolve: (slug) => {
+        seen.push(slug);
+        return slug === 'beacon' ? null : { apiKey: `k-${slug}`, serviceSlug: slug };
+      },
+    });
+
+    await provider.getToken();
+    await provider.getToken('articuno');
+    await expect(provider.getToken('beacon')).rejects.toThrow('not configured');
+    expect(seen).toEqual(['dbd-builds', 'articuno', 'beacon']);
+  });
+});

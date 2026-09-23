@@ -53,7 +53,8 @@ export class JwksVerifier {
     this.ttlMs = options.ttlMs ?? 300_000;
     this.issuer = options.issuer === undefined ? 'bastion' : options.issuer;
     this.logger = options.logger ?? silentLogger;
-    this.fetchImpl = options.fetch ?? fetch;
+    // Late-bound on purpose: a consumer (or its tests) may replace global fetch after construction.
+    this.fetchImpl = options.fetch ?? ((...args) => fetch(...args));
   }
 
   async verify(token: string): Promise<BastionJwtPayload> {
