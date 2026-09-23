@@ -111,6 +111,7 @@ const payload = await verifier.verify(bearerToken); // throws BastionTokenError
 
 const http = new BastionHttp({ baseUrl: process.env.BASTION_URL! });
 const tokens = new ServiceTokenProvider(http, { apiKey, serviceSlug: 'my-service' });
+// several targets: a record keyed by serviceSlug, or { defaultSlug, resolve: (slug) => credential | null }
 await http.writeAuditEvent(await tokens.getToken(), { event: 'thing.done' });
 ```
 
