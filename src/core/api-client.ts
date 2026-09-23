@@ -21,7 +21,7 @@ import type {
   BastionUserAuditEventsPage,
 } from './api-types.js';
 
-const REFRESH_CACHE_MS = 60_000;
+const DEFAULT_REFRESH_MEMORY_MS = 60_000;
 const AUTH_METHODS_CACHE_MS = 5 * 60_000;
 const MAX_ROTATION_HOPS = 32;
 
@@ -31,6 +31,14 @@ export interface BastionApiClientOptions {
   appSlug: string;
   /** Required by Bastion when the app is registered in more than one tenant, or is `isGlobal`. */
   tenantSlug?: string;
+  /**
+   * How long a refresh answer is remembered per refresh token, default 60 000 ms.
+   * Within the window a second `refresh` with the same (now revoked) token
+   * returns the remembered pair instead of tripping Bastion's reuse detection,
+   * and `logout` still finds the successor. A BFF whose pages fire several
+   * calls before the browser sees the new cookie may want a few minutes.
+   */
+  refreshMemoryMs?: number;
   logger?: BastionLogger;
 }
 
@@ -52,6 +60,7 @@ export class BastionApiClient {
   private readonly http: BastionHttp;
   private readonly appSlug: string;
   private readonly tenantSlug?: string;
+  private readonly refreshMemoryMs: number;
   private readonly logger: BastionLogger;
 
   private readonly inFlight = new Map<string, Promise<BastionTokenPair>>();
@@ -63,6 +72,7 @@ export class BastionApiClient {
     this.http = options.http;
     this.appSlug = options.appSlug;
     this.tenantSlug = options.tenantSlug || undefined;
+    this.refreshMemoryMs = options.refreshMemoryMs ?? DEFAULT_REFRESH_MEMORY_MS;
     this.logger = options.logger ?? silentLogger;
   }
 
@@ -124,7 +134,7 @@ export class BastionApiClient {
     return pending;
   }
 
-  /** Revokes the token and any successor issued through `refresh` in the last minute. Never throws. */
+  /** Revokes the token and any successor issued through `refresh` within the memory window. Never throws. */
   async logout(refreshToken: string | null | undefined): Promise<void> {
     if (!refreshToken) return;
     const tokens = new Set([refreshToken, this.latestRefreshToken(refreshToken)]);
@@ -220,20 +230,23 @@ export class BastionApiClient {
 
   // ── email & password ─────────────────────────────────────────────────────
 
-  resendVerification(email: string): Promise<void> {
-    return this.call('POST', '/auth/resend-verification', { email, ...this.appContext });
+  // Unauthenticated routes: Bastion rate-limits them by IP, so pass the
+  // browser's context or every user behind this backend shares one bucket.
+
+  resendVerification(email: string, ctx?: BastionClientContext): Promise<void> {
+    return this.call('POST', '/auth/resend-verification', { email, ...this.appContext }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
-  verifyEmail(token: string): Promise<void> {
-    return this.call('GET', `/auth/verify-email?token=${encodeURIComponent(token)}`);
+  verifyEmail(token: string, ctx?: BastionClientContext): Promise<void> {
+    return this.call('GET', `/auth/verify-email?token=${encodeURIComponent(token)}`, undefined, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
-  forgotPassword(email: string): Promise<void> {
-    return this.call('POST', '/auth/forgot-password', { email, ...this.appContext });
+  forgotPassword(email: string, ctx?: BastionClientContext): Promise<void> {
+    return this.call('POST', '/auth/forgot-password', { email, ...this.appContext }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
-  resetPassword(token: string, newPassword: string): Promise<void> {
-    return this.call('POST', '/auth/reset-password', { token, newPassword });
+  resetPassword(token: string, newPassword: string, ctx?: BastionClientContext): Promise<void> {
+    return this.call('POST', '/auth/reset-password', { token, newPassword }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
   changePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {
@@ -244,12 +257,12 @@ export class BastionApiClient {
     return this.call('PATCH', '/auth/me/email', input, { token: accessToken });
   }
 
-  confirmEmailChange(token: string): Promise<{ message: string }> {
-    return this.call('POST', '/auth/me/confirm-email', { token });
+  confirmEmailChange(token: string, ctx?: BastionClientContext): Promise<{ message: string }> {
+    return this.call('POST', '/auth/me/confirm-email', { token }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
-  revokeEmailChange(token: string): Promise<{ message: string }> {
-    return this.call('POST', '/auth/me/revoke-email-change', { token });
+  revokeEmailChange(token: string, ctx?: BastionClientContext): Promise<{ message: string }> {
+    return this.call('POST', '/auth/me/revoke-email-change', { token }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
   // ── GDPR ─────────────────────────────────────────────────────────────────
@@ -285,7 +298,7 @@ export class BastionApiClient {
   }
 
   private prune(now: number): void {
-    for (const [key, entry] of this.recent) if (now - entry.at >= REFRESH_CACHE_MS) this.recent.delete(key);
-    for (const [key, entry] of this.successors) if (now - entry.at >= REFRESH_CACHE_MS) this.successors.delete(key);
+    for (const [key, entry] of this.recent) if (now - entry.at >= this.refreshMemoryMs) this.recent.delete(key);
+    for (const [key, entry] of this.successors) if (now - entry.at >= this.refreshMemoryMs) this.successors.delete(key);
   }
 }

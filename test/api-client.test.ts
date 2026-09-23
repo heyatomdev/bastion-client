@@ -63,3 +63,29 @@ describe('BastionApiClient', () => {
     expect(new BastionHttpError(403, 'UNDER_MINIMUM_AGE').code).toBe('UNDER_MINIMUM_AGE');
   });
 });
+
+describe('BastionApiClient — 0.4.0 additions', () => {
+  it('classifies app/tenant context, refresh token and OAuth code failures, and passes OAUTH_* codes through', () => {
+    expect(new BastionHttpError(401, 'Tenant not found for this app').code).toBe('INVALID_APP_CONTEXT');
+    expect(new BastionHttpError(400, 'tenantSlug is required for this app').code).toBe('INVALID_APP_CONTEXT');
+    expect(new BastionHttpError(401, 'Invalid refresh token').code).toBe('INVALID_REFRESH_TOKEN');
+    expect(new BastionHttpError(401, 'Invalid or already used code').code).toBe('INVALID_OAUTH_CODE');
+    expect(new BastionHttpError(403, 'OAUTH_EMAIL_UNVERIFIED').code).toBe('OAUTH_EMAIL_UNVERIFIED');
+    expect(new BastionHttpError(401, 'Invalid credentials').code).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('forwards the browser context on forgotPassword and honours refreshMemoryMs', async () => {
+    let n = 0;
+    const { http, calls } = fakeHttp((path) =>
+      path === '/auth/refresh' ? { status: 200, body: { accessToken: `a${++n}`, refreshToken: `r${n}` } } : { status: 204 },
+    );
+    const api = new BastionApiClient({ http, appSlug: 'x', refreshMemoryMs: 0 });
+
+    await api.forgotPassword('a@b.c', { ip: '9.9.9.9', userAgent: 'UA' });
+    expect(calls[0].init.headers).toMatchObject({ 'X-Real-IP': '9.9.9.9', 'User-Agent': 'UA' });
+
+    await api.refresh('r0');
+    await api.refresh('r0'); // memory disabled → second call reaches Bastion
+    expect(calls.filter((c) => c.path === '/auth/refresh')).toHaveLength(2);
+  });
+});
