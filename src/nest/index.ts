@@ -5,7 +5,7 @@ export { BastionJwksService } from './bastion-jwks.service.js';
 export { BastionService } from './bastion.service.js';
 export { BastionApiClientProvider } from './bastion-api-client.provider.js';
 export { BastionHttpException, NestBastionHttp } from './bastion-http-exception.js';
-export { BastionAuditService } from './bastion-audit.service.js';
+export { BastionAuditService, type AuditActor } from './bastion-audit.service.js';
 export { ServiceClientJwtGuard } from './guards/service-client-jwt.guard.js';
 export { BastionUserGuard } from './guards/bastion-user.guard.js';
 export { AuditInterceptor } from './interceptors/audit.interceptor.js';

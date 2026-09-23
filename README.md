@@ -6,7 +6,7 @@ Replaces the `src/modules/bastion/` boilerplate every service used to copy by ha
 - `@heyatom/bastion-client` — framework-free core: `JwksVerifier` (kid-indexed cache, unknown-kid refetch with cooldown, stale-on-error), `BastionHttp` (`POST /auth/client`, `POST /events`, any other route), `ServiceTokenProvider` (single-flight refresh ahead of `exp`), payload types.
 - `@heyatom/bastion-client` also carries Bastion's user-API contract: `BastionApiClient` (login, register, OAuth exchange, 2FA, single-flight refresh, logout, sessions, `/me`, profile, social accounts, email/password flows, export, delete), its types (`BastionMe`, `BastionTokenPair`, …) and `BastionErrorCode` (a stable code on every `BastionHttpError`).
 - `@heyatom/bastion-client/webhooks` — `verifyWebhookSignature` (`X-Bastion-Signature-V2` with timestamp + delivery id, legacy fallback, secret rotation on both sides), header constants, payload type.
-- `@heyatom/bastion-client/nest` — NestJS: `BastionModule`, `ServiceClientJwtGuard`, `BastionUserGuard`, `BastionAuditService`, `AuditInterceptor`, `@Public()`, `@RequireScope()`, `@Audit()`, `@CurrentClient()`, `@CurrentAdminUser()`.
+- `@heyatom/bastion-client/nest` — NestJS: `BastionModule`, `ServiceClientJwtGuard`, `BastionUserGuard`, `BastionAuditService`, `AuditInterceptor` (attributes to `req.adminUser`, any `AuditActor` shape: `sub` plus optional `tenantId`/`tenantSlug`/`role`/`appSlug`), `@Public()`, `@RequireScope()`, `@Audit()`, `@CurrentClient()`, `@CurrentAdminUser()`.
 
 Ships CJS and ESM. `jose` v6 is ESM-only, so the CJS build relies on Node's `require(esm)` — Node ≥ 20.19 / 22.12. Peer deps: `jose` (always), `@nestjs/common`, `@nestjs/core`, `rxjs`, `reflect-metadata` (for `/nest`).
 

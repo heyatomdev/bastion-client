@@ -1,9 +1,20 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ServiceTokenProvider } from '../core/service-token-provider.js';
-import type { UserJwtPayload } from '../core/types.js';
 import { BastionService } from './bastion.service.js';
 import { BASTION_OPTIONS, type BastionModuleOptions } from './options.js';
 import { nestLogger } from './nest-logger.js';
+
+/**
+ * The fields `writeAsAdmin` reads from an actor. A `UserJwtPayload` fits, and
+ * so does a consumer's own admin payload that carries extra fields.
+ */
+export interface AuditActor {
+  sub: string;
+  tenantId?: string;
+  tenantSlug?: string;
+  role?: string;
+  appSlug?: string;
+}
 
 /**
  * Fire-and-forget audit writes to `POST /events` under this service's own
@@ -72,7 +83,7 @@ export class BastionAuditService implements OnModuleInit {
    */
   async writeAsAdmin(
     event: string,
-    actor: UserJwtPayload | undefined,
+    actor: AuditActor | undefined,
     metadata: Record<string, unknown> = {},
   ): Promise<void> {
     await this.tokens?.getToken().catch(() => undefined);
