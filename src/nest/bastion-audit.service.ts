@@ -26,6 +26,7 @@ export class BastionAuditService implements OnModuleInit {
   private readonly logger = new Logger(BastionAuditService.name);
   private readonly tokens: ServiceTokenProvider | null;
   private tenantMismatchWarned = false;
+  private noApiKeyWarned = false;
 
   constructor(
     private readonly bastion: BastionService,
@@ -61,7 +62,12 @@ export class BastionAuditService implements OnModuleInit {
     opts: { userId?: string; metadata?: Record<string, unknown> } = {},
   ): Promise<void> {
     if (!this.tokens) {
-      this.logger.warn(`audit write skipped, no apiKey configured event=${event}`);
+      // Once, not per event: a consumer that verifies tokens but never writes
+      // audit (no apiKey on purpose) would otherwise log every skipped write.
+      if (!this.noApiKeyWarned) {
+        this.noApiKeyWarned = true;
+        this.logger.warn(`audit writes skipped, no apiKey configured (first event=${event})`);
+      }
       return;
     }
     let token: string;
