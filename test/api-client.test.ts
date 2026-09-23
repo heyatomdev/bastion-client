@@ -13,6 +13,16 @@ function fakeHttp(answers: (path: string, init: RequestInit) => { status: number
 }
 
 describe('BastionApiClient', () => {
+  it('pages the user audit trail and reads the profile back as the updated columns', async () => {
+    const { http, calls } = fakeHttp((path) =>
+      path.startsWith('/auth/me/events') ? { status: 200, body: { data: [], total: 0, page: 2, limit: 5 } } : { status: 200, body: { id: 'u', email: 'a@b.c', username: 'a', image: null, preferredLocale: 'it', emailVerified: true } },
+    );
+    const api = new BastionApiClient({ http, appSlug: 'x' });
+    await expect(api.listMyEvents('t', { page: 2, limit: 5 })).resolves.toMatchObject({ page: 2 });
+    expect(calls[0].path).toBe('/auth/me/events?page=2&limit=5');
+    await expect(api.updateProfile('t', { username: 'a' })).resolves.toMatchObject({ emailVerified: true });
+  });
+
   it('sends appSlug/tenantSlug and forwards the browser context on login', async () => {
     const { http, calls } = fakeHttp(() => ({ status: 200, body: { accessToken: 'a', refreshToken: 'r' } }));
     const api = new BastionApiClient({ http, appSlug: 'dbd-builds', tenantSlug: 'dbd' });

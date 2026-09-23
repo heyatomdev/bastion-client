@@ -67,6 +67,16 @@ export interface BastionAgeVerificationResult {
   isMinor: boolean;
 }
 
+/** What `PATCH /auth/me` answers: the updated columns, not the full `BastionMe`. */
+export interface BastionProfile {
+  id: string;
+  email: string;
+  username: string | null;
+  image: string | null;
+  preferredLocale: string | null;
+  emailVerified: boolean;
+}
+
 export interface BastionProfileUpdate {
   username?: string;
   image?: string | null;
@@ -123,4 +133,23 @@ export interface BastionAuthMethods {
 
 export interface BastionLinkTicket {
   url: string;
+}
+
+/** One row of `GET /auth/me/events` — the user-facing projection, deliberately without `ip`/`userAgent`. */
+export interface BastionUserAuditEvent {
+  id: string;
+  tenantId: string;
+  userId: string | null;
+  appSlug: string;
+  event: string;
+  source: 'BASTION' | 'APP';
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface BastionUserAuditEventsPage {
+  data: BastionUserAuditEvent[];
+  total: number;
+  page: number;
+  limit: number;
 }

@@ -9,6 +9,7 @@ import type {
   BastionLinkTicket,
   BastionLoginResult,
   BastionMe,
+  BastionProfile,
   BastionProfileUpdate,
   BastionRegisterInput,
   BastionSession,
@@ -17,6 +18,7 @@ import type {
   BastionTwoFactorConfirmed,
   BastionTwoFactorSetup,
   BastionTwoFactorStatus,
+  BastionUserAuditEventsPage,
 } from './api-types.js';
 
 const REFRESH_CACHE_MS = 60_000;
@@ -154,7 +156,8 @@ export class BastionApiClient {
     return this.call('GET', '/auth/me', undefined, { token: accessToken });
   }
 
-  updateProfile(accessToken: string, update: BastionProfileUpdate): Promise<BastionMe> {
+  /** Answers the updated columns only (`BastionProfile`), not the full `BastionMe`. */
+  updateProfile(accessToken: string, update: BastionProfileUpdate): Promise<BastionProfile> {
     return this.call('PATCH', '/auth/me', update, { token: accessToken });
   }
 
@@ -250,6 +253,15 @@ export class BastionApiClient {
   }
 
   // ── GDPR ─────────────────────────────────────────────────────────────────
+
+  /** The user's own audit trail (`GET /auth/me/events`), paginated. */
+  listMyEvents(accessToken: string, page: { page?: number; limit?: number } = {}): Promise<BastionUserAuditEventsPage> {
+    const params = new URLSearchParams();
+    if (page.page !== undefined) params.set('page', String(page.page));
+    if (page.limit !== undefined) params.set('limit', String(page.limit));
+    const qs = params.toString();
+    return this.call('GET', `/auth/me/events${qs ? `?${qs}` : ''}`, undefined, { token: accessToken });
+  }
 
   exportData(accessToken: string): Promise<Record<string, unknown>> {
     return this.call('GET', '/auth/me/export', undefined, { token: accessToken });
