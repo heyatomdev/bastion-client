@@ -135,6 +135,11 @@ export interface BastionLinkTicket {
   url: string;
 }
 
+/** `POST /auth/me/social-accounts/link/complete` — the provider now linked (lowercase slug). */
+export interface BastionLinkCompleted {
+  provider: string;
+}
+
 /** One row of `GET /auth/me/events` — the user-facing projection, deliberately without `ip`/`userAgent`. */
 export interface BastionUserAuditEvent {
   id: string;

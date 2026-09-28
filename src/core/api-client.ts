@@ -6,6 +6,7 @@ import type {
   BastionAuthMethods,
   BastionClientContext,
   BastionEmailChangeRequest,
+  BastionLinkCompleted,
   BastionLinkTicket,
   BastionLoginResult,
   BastionMe,
@@ -218,6 +219,16 @@ export class BastionApiClient {
 
   createSocialAccountLinkTicket(accessToken: string, provider: string): Promise<BastionLinkTicket> {
     return this.call('POST', `/auth/me/social-accounts/${encodeURIComponent(provider)}/link-ticket`, undefined, { token: accessToken });
+  }
+
+  /**
+   * Second step of a link: spends the one-time `linkCode` Bastion put on the
+   * redirect to `/auth/callback`. Pass the signed-in user's own token — Bastion
+   * links only if its `sub` is the user the ticket was issued to (403
+   * `OAUTH_LINK_USER_MISMATCH` otherwise; the code is spent either way).
+   */
+  completeSocialAccountLink(accessToken: string, code: string): Promise<BastionLinkCompleted> {
+    return this.call('POST', '/auth/me/social-accounts/link/complete', { code }, { token: accessToken });
   }
 
   unlinkSocialAccount(accessToken: string, provider: string): Promise<void> {

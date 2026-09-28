@@ -89,3 +89,20 @@ describe('BastionApiClient — 0.4.0 additions', () => {
     expect(calls.filter((c) => c.path === '/auth/refresh')).toHaveLength(2);
   });
 });
+
+describe('BastionApiClient — 0.5.0 additions', () => {
+  it("completes a link with the user's token and surfaces a user mismatch as its OAUTH_ code", async () => {
+    const { http, calls } = fakeHttp(() => ({ status: 200, body: { provider: 'discord' } }));
+    const api = new BastionApiClient({ http, appSlug: 'x' });
+
+    await expect(api.completeSocialAccountLink('user-token', 'link-code')).resolves.toEqual({ provider: 'discord' });
+    expect(calls[0].path).toBe('/auth/me/social-accounts/link/complete');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ code: 'link-code' });
+    expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer user-token' });
+
+    const refused = fakeHttp(() => ({ status: 403, body: { message: 'OAUTH_LINK_USER_MISMATCH' } }));
+    await expect(
+      new BastionApiClient({ http: refused.http, appSlug: 'x' }).completeSocialAccountLink('t', 'c'),
+    ).rejects.toMatchObject({ status: 403, code: 'OAUTH_LINK_USER_MISMATCH' });
+  });
+});

@@ -42,6 +42,8 @@ export const BastionErrorCode = {
   OAUTH_EMAIL_UNVERIFIED: 'OAUTH_EMAIL_UNVERIFIED',
   OAUTH_EMAIL_REQUIRED: 'OAUTH_EMAIL_REQUIRED',
   OAUTH_NO_ACCOUNT: 'OAUTH_NO_ACCOUNT',
+  /** `completeSocialAccountLink` called with a token that is not the link ticket's owner. The code is spent; start the link again. */
+  OAUTH_LINK_USER_MISMATCH: 'OAUTH_LINK_USER_MISMATCH',
   UNAVAILABLE: 'UNAVAILABLE',
   UPSTREAM: 'UPSTREAM',
 } as const;
@@ -56,6 +58,7 @@ const CODE_MESSAGES: ReadonlySet<string> = new Set([
   BastionErrorCode.OAUTH_EMAIL_UNVERIFIED,
   BastionErrorCode.OAUTH_EMAIL_REQUIRED,
   BastionErrorCode.OAUTH_NO_ACCOUNT,
+  BastionErrorCode.OAUTH_LINK_USER_MISMATCH,
 ]);
 
 const APP_CONTEXT_RE = /app not found|tenant not found|tenant is inactive|no tenants configured|tenantslug is required/i;
