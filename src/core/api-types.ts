@@ -115,6 +115,8 @@ export interface BastionClientContext {
 
 export interface BastionSocialAccount {
   provider: string;
+  /** The provider's own id for the account (e.g. the Twitch user id), as verified by the OAuth flow. */
+  providerId: string;
   username: string | null;
   email: string | null;
   avatar: string | null;
