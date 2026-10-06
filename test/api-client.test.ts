@@ -100,6 +100,9 @@ describe('BastionApiClient — 0.5.0 additions', () => {
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ code: 'link-code' });
     expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer user-token' });
 
+    await api.completeSocialAccountLink('user-token', 'link-code', { currentPassword: 'pw', twoFactorCode: '123456' });
+    expect(JSON.parse(calls[1].init.body as string)).toEqual({ code: 'link-code', currentPassword: 'pw', twoFactorCode: '123456' });
+
     const refused = fakeHttp(() => ({ status: 403, body: { message: 'OAUTH_LINK_USER_MISMATCH' } }));
     await expect(
       new BastionApiClient({ http: refused.http, appSlug: 'x' }).completeSocialAccountLink('t', 'c'),

@@ -227,8 +227,13 @@ export class BastionApiClient {
    * links only if its `sub` is the user the ticket was issued to (403
    * `OAUTH_LINK_USER_MISMATCH` otherwise; the code is spent either way).
    */
-  completeSocialAccountLink(accessToken: string, code: string): Promise<BastionLinkCompleted> {
-    return this.call('POST', '/auth/me/social-accounts/link/complete', { code }, { token: accessToken });
+  /** Step-up: `currentPassword` when the account has one, `twoFactorCode` when 2FA is on. */
+  completeSocialAccountLink(
+    accessToken: string,
+    code: string,
+    stepUp: { currentPassword?: string; twoFactorCode?: string } = {},
+  ): Promise<BastionLinkCompleted> {
+    return this.call('POST', '/auth/me/social-accounts/link/complete', { code, ...stepUp }, { token: accessToken });
   }
 
   unlinkSocialAccount(accessToken: string, provider: string): Promise<void> {
