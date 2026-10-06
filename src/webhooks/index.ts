@@ -30,6 +30,13 @@ export interface VerifyWebhookOptions {
   headers: Record<string, string | string[] | undefined>;
   /** Your webhook secret, plus the previous one during a rotation. */
   secrets: string | string[];
+  /**
+   * Accept the legacy body-only `X-Bastion-Signature` when v2 is absent.
+   * Default `false`: legacy carries no timestamp or delivery id, so accepting
+   * it lets anyone holding an old delivery replay it by stripping the v2
+   * header. Opt in only while migrating a consumer that cannot see v2 yet.
+   */
+  allowLegacySignature?: boolean;
   /** Max age of `t` on a v2 signature, default 300 s. */
   toleranceSeconds?: number;
   /** For tests. */
@@ -59,9 +66,9 @@ function macEquals(hexA: string, hexB: string): boolean {
  * Verifies a Bastion delivery. Prefers `X-Bastion-Signature-V2`
  * (`t=<unix>,id=<deliveryId>,v1=<hex>[,v1=<hex>]`, MAC over `"<t>.<id>.<body>"`),
  * which binds the timestamp and the delivery id so a stale or replayed
- * delivery is rejected without trusting any unsigned header; falls back to
- * the legacy `X-Bastion-Signature: sha256=<hex>` over the body alone only when
- * v2 is absent. Any of the caller's `secrets` matching any `v1=` accepts:
+ * delivery is rejected without trusting any unsigned header. The legacy
+ * `X-Bastion-Signature: sha256=<hex>` over the body alone is accepted only
+ * when v2 is absent **and** `allowLegacySignature` is set. Any of the caller's `secrets` matching any `v1=` accepts:
  * that is how a secret rotation stays zero-downtime on both sides.
  */
 export function verifyWebhookSignature(options: VerifyWebhookOptions): VerifyWebhookResult {
@@ -89,6 +96,7 @@ export function verifyWebhookSignature(options: VerifyWebhookOptions): VerifyWeb
     return { ok: false, reason: 'mismatch' };
   }
 
+  if (!options.allowLegacySignature) return { ok: false, reason: 'missing' };
   const legacy = header(options.headers, BASTION_SIGNATURE_HEADER);
   if (!legacy) return { ok: false, reason: 'missing' };
   if (!legacy.startsWith('sha256=')) return { ok: false, reason: 'malformed' };

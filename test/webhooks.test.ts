@@ -31,9 +31,13 @@ describe('verifyWebhookSignature', () => {
     expect(verifyWebhookSignature({ rawBody: body, headers: { 'x-bastion-signature-v2': 't=1,v1=zz' }, secrets: secret, now: () => now })).toEqual({ ok: false, reason: 'malformed' });
   });
 
-  it('falls back to the legacy body-only signature only when v2 is absent', () => {
-    expect(verifyWebhookSignature({ rawBody: Buffer.from(body), headers: { 'x-bastion-signature': legacy(secret) }, secrets: secret })).toEqual({ ok: true, version: 'legacy' });
-    expect(verifyWebhookSignature({ rawBody: body, headers: { 'x-bastion-signature': legacy(secret), 'x-bastion-signature-v2': v2(['bad']) }, secrets: secret, now: () => now }).ok).toBe(false);
+  it('rejects a legacy-only delivery by default (v2 header stripped = replay downgrade)', () => {
+    expect(verifyWebhookSignature({ rawBody: body, headers: { 'x-bastion-signature': legacy(secret) }, secrets: secret })).toEqual({ ok: false, reason: 'missing' });
+  });
+
+  it('falls back to the legacy body-only signature only when opted in and v2 is absent', () => {
+    expect(verifyWebhookSignature({ rawBody: Buffer.from(body), headers: { 'x-bastion-signature': legacy(secret) }, secrets: secret, allowLegacySignature: true })).toEqual({ ok: true, version: 'legacy' });
+    expect(verifyWebhookSignature({ rawBody: body, headers: { 'x-bastion-signature': legacy(secret), 'x-bastion-signature-v2': v2(['bad']) }, secrets: secret, allowLegacySignature: true, now: () => now }).ok).toBe(false);
     expect(verifyWebhookSignature({ rawBody: body, headers: {}, secrets: secret })).toEqual({ ok: false, reason: 'missing' });
   });
 });
