@@ -106,9 +106,14 @@ export class BastionApiClient {
     return this.call('POST', '/auth/register', { ...input, ...this.appContext }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
-  /** Trades the one-time OAuth code for tokens. */
-  exchange(code: string, ctx?: BastionClientContext): Promise<BastionLoginResult> {
-    return this.call('POST', '/auth/exchange', { code, appSlug: this.appSlug }, { headers: BastionApiClient.clientHeaders(ctx) });
+  /**
+   * Trades the one-time OAuth code for tokens. `state` is the value the app put
+   * on the initiate URL, read back from its own cookie/session (never from the
+   * callback query): Bastion refuses a code minted under a different one, which
+   * is what stops an attacker's code from being redeemed in a victim's browser.
+   */
+  exchange(code: string, ctx?: BastionClientContext, state?: string): Promise<BastionLoginResult> {
+    return this.call('POST', '/auth/exchange', { code, appSlug: this.appSlug, ...(state !== undefined ? { state } : {}) }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
   completeTwoFactor(twoFactorToken: string, code: string, ctx?: BastionClientContext): Promise<BastionTokenPair> {

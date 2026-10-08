@@ -35,6 +35,17 @@ describe('BastionApiClient', () => {
     expect(init.headers).toMatchObject({ 'X-Real-IP': '1.2.3.4', 'User-Agent': 'UA' });
   });
 
+  it('sends the flow state on exchange only when given', async () => {
+    const { http, calls } = fakeHttp(() => ({ status: 200, body: { accessToken: 'a', refreshToken: 'r' } }));
+    const api = new BastionApiClient({ http, appSlug: 'meridian' });
+
+    await api.exchange('c', undefined, 's');
+    await api.exchange('c');
+
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ code: 'c', appSlug: 'meridian', state: 's' });
+    expect(JSON.parse(calls[1].init.body as string)).toEqual({ code: 'c', appSlug: 'meridian' });
+  });
+
   it('single-flights concurrent refreshes and logs out the rotated successor', async () => {
     let n = 0;
     const { http, calls } = fakeHttp((path) =>
