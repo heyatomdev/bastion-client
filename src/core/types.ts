@@ -23,6 +23,12 @@ export interface UserJwtPayload extends CommonClaims {
   role: string;
   permissions: string[];
   sessionId?: string;
+  /**
+   * Present (always `true`) only while the app has a minimum age and the account hasn't cleared
+   * it — an OAuth signup that hasn't answered `completeAgeVerification`. Absent on every other
+   * token. Recomputed at each issuance: refresh after the screen.
+   */
+  ageVerificationRequired?: true;
 }
 
 /** A machine token from `POST /auth/client`. Discriminated by `type`. */
