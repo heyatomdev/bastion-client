@@ -120,3 +120,18 @@ describe('BastionApiClient — 0.5.0 additions', () => {
     ).rejects.toMatchObject({ status: 403, code: 'OAUTH_LINK_USER_MISMATCH' });
   });
 });
+
+describe('BastionApiClient — 0.7.2 additions', () => {
+  it('sends the step-up fields with the age screen', async () => {
+    const { http, calls } = fakeHttp(() => ({ status: 200, body: { ageVerified: true, isMinor: false } }));
+    const api = new BastionApiClient({ http, appSlug: 'x' });
+
+    await api.completeAgeVerification('user-token', '2000-01-31');
+    expect(calls[0].path).toBe('/auth/age-verification');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ birthDate: '2000-01-31' });
+
+    await api.completeAgeVerification('user-token', '2000-01-31', { currentPassword: 'pw', twoFactorCode: '123456' });
+    expect(JSON.parse(calls[1].init.body as string)).toEqual({ birthDate: '2000-01-31', currentPassword: 'pw', twoFactorCode: '123456' });
+    expect(calls[1].init.headers).toMatchObject({ Authorization: 'Bearer user-token' });
+  });
+});

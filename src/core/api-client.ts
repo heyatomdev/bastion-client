@@ -177,8 +177,13 @@ export class BastionApiClient {
     return this.call('PATCH', '/auth/me', update, { token: accessToken });
   }
 
-  completeAgeVerification(accessToken: string, birthDate: string): Promise<BastionAgeVerificationResult> {
-    return this.call('POST', '/auth/age-verification', { birthDate }, { token: accessToken });
+  /** Step-up as `deleteSelf`: `currentPassword` when the account has one, `twoFactorCode` when 2FA is on. */
+  completeAgeVerification(
+    accessToken: string,
+    birthDate: string,
+    stepUp: { currentPassword?: string; twoFactorCode?: string } = {},
+  ): Promise<BastionAgeVerificationResult> {
+    return this.call('POST', '/auth/age-verification', { birthDate, ...stepUp }, { token: accessToken });
   }
 
   /** Cached 5 min; a failed refetch serves the cached answer. */
