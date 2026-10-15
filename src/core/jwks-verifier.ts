@@ -30,7 +30,7 @@ export interface JwksVerifierOptions {
 const UNKNOWN_KID_REFETCH_COOLDOWN_MS = 30_000;
 
 /**
- * The canonical consumer of Bastion's JWKS (docs/BASTION_INTEGRATION.md):
+ * The canonical consumer of Bastion's JWKS (docs/integrations/bastion.md in the platform repo):
  * keys cached and indexed by `kid`, refetch on an unknown kid with a
  * cooldown, stale cache served when a refetch fails. Second safety net only:
  * Bastion publishes a key before signing with it (publish-before-use), so a

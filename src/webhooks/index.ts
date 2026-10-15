@@ -34,7 +34,8 @@ export interface VerifyWebhookOptions {
    * Accept the legacy body-only `X-Bastion-Signature` when v2 is absent.
    * Default `false`: legacy carries no timestamp or delivery id, so accepting
    * it lets anyone holding an old delivery replay it by stripping the v2
-   * header. Opt in only while migrating a consumer that cannot see v2 yet.
+   * header. Bastion no longer sends the legacy header, so there is nothing
+   * left to migrate: leave it off.
    */
   allowLegacySignature?: boolean;
   /** Max age of `t` on a v2 signature, default 300 s. */

@@ -7,8 +7,9 @@ import { nestLogger } from './nest-logger.js';
 /**
  * `BastionApiClient` bound to this app (`serviceSlug` as `appSlug`,
  * `tenantSlug`), sharing `BastionService.http`. Inject it in an app backend
- * that proxies its users' login/refresh/account flows; a pure service
- * (Herald, Beacon) never needs it. Failures are `BastionHttpException`s:
+ * that proxies its users' login/refresh/account flows, or one that reads
+ * its users' Bastion data with their token (Beacon: `listSocialAccounts`);
+ * a pure machine service (Herald) never needs it. Failures are `BastionHttpException`s:
  * an `HttpException` with Bastion's status plus `code`/`upstreamMessage`.
  */
 @Injectable()
