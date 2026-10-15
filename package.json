@@ -10,7 +10,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "main": "./dist/cjs/core/index.js",
   "module": "./dist/esm/core/index.js",
