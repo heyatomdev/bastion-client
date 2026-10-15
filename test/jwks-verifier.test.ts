@@ -1,3 +1,4 @@
+import { createHmac, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { BastionTokenError, JwksVerifier } from '../src/core/index.js';
 import { fakeJwksFetch, makeIssuer, serviceClaims } from './helpers.js';
@@ -60,6 +61,27 @@ describe('JwksVerifier', () => {
     await expect(verifier.verify(await other.sign(serviceClaims))).rejects.toMatchObject({ code: 'invalid' });
     await expect(verifier.verify(await issuer.sign(serviceClaims, { exp: '-1m' }))).rejects.toMatchObject({ code: 'invalid' });
     await expect(verifier.verify('not.a.jwt')).rejects.toBeInstanceOf(BastionTokenError);
+  });
+
+  it('rejects alg none / HS256 tokens, a tampered payload, a future nbf and a short RSA key', async () => {
+    const issuer = await makeIssuer();
+    const { fetchImpl } = fakeJwksFetch(() => ({ keys: [issuer.jwk] }));
+    const verifier = new JwksVerifier({ baseUrl: 'http://bastion', fetch: fetchImpl });
+    const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const claims = { ...serviceClaims, iss: 'bastion', exp: Math.floor(Date.now() / 1000) + 600 };
+
+    await expect(verifier.verify(`${b64({ alg: 'none', kid: 'kid-1' })}.${b64(claims)}.`)).rejects.toMatchObject({ code: 'invalid' });
+    const hsInput = `${b64({ alg: 'HS256', kid: 'kid-1' })}.${b64(claims)}`;
+    const hsSig = createHmac('sha256', JSON.stringify(issuer.jwk)).update(hsInput).digest('base64url');
+    await expect(verifier.verify(`${hsInput}.${hsSig}`)).rejects.toMatchObject({ code: 'invalid' });
+
+    const [h, , sig] = (await issuer.sign(serviceClaims)).split('.');
+    await expect(verifier.verify(`${h}.${b64({ ...claims, scopes: ['*'] })}.${sig}`)).rejects.toMatchObject({ code: 'invalid' });
+    await expect(verifier.verify(await issuer.sign({ ...serviceClaims, nbf: Math.floor(Date.now() / 1000) + 600 }))).rejects.toMatchObject({ code: 'invalid' });
+
+    const { publicKey } = generateKeyPairSync('rsa', { modulusLength: 1024 });
+    const weak = new JwksVerifier({ baseUrl: 'http://bastion', fetch: fakeJwksFetch(() => ({ keys: [{ ...publicKey.export({ format: 'jwk' }), kid: 'kid-1' }] })).fetchImpl });
+    await expect(weak.verify(await issuer.sign(serviceClaims))).rejects.toMatchObject({ code: 'unknown_kid' });
   });
 
   it('skips the issuer check only when issuer is null', async () => {

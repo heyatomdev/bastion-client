@@ -8,9 +8,11 @@ export { BastionHttpException, NestBastionHttp } from './bastion-http-exception.
 export { BastionAuditService, type AuditActor } from './bastion-audit.service.js';
 export { ServiceClientJwtGuard } from './guards/service-client-jwt.guard.js';
 export { BastionUserGuard } from './guards/bastion-user.guard.js';
+export { AppUserGuard } from './guards/app-user.guard.js';
 export { AuditInterceptor } from './interceptors/audit.interceptor.js';
 export { Public, IS_PUBLIC_KEY } from './decorators/public.decorator.js';
 export { RequireScope, REQUIRED_SCOPES_KEY } from './decorators/require-scope.decorator.js';
 export { Audit, AUDIT_EVENT_KEY, type AuditOptions, type AuditRequest, type AuditDescriptor } from './decorators/audit.decorator.js';
-export { CurrentClient, CurrentAdminUser } from './decorators/current-user.decorator.js';
+export { CurrentClient, CurrentAdminUser, CurrentUser } from './decorators/current-user.decorator.js';
+export { currentRequestId } from './request-context.js';
 export { resolveTenantScope, CROSS_TENANT_ROLE } from './tenant-scope.js';

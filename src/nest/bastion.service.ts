@@ -3,14 +3,19 @@ import { type BastionRequestInit } from '../core/bastion-http.js';
 import { NestBastionHttp } from './bastion-http-exception.js';
 import type { AuditEventInput, TokenResponse } from '../core/types.js';
 import { BASTION_OPTIONS, type BastionModuleOptions } from './options.js';
+import { currentRequestId } from './request-context.js';
 
-/** Outbound HTTP to Bastion. A failure surfaces as `BastionHttpException` (an `HttpException` with Bastion's status, a stable `code` and the upstream message). */
+/** Outbound HTTP to Bastion, `X-Request-Id` included. A failure surfaces as `BastionHttpException` (4xx as Bastion's, 5xx as 502/503 with a generic message). */
 @Injectable()
 export class BastionService {
   readonly http: NestBastionHttp;
 
   constructor(@Inject(BASTION_OPTIONS) private readonly options: BastionModuleOptions) {
-    this.http = new NestBastionHttp({ baseUrl: options.baseUrl, timeoutMs: options.timeoutMs });
+    this.http = new NestBastionHttp({
+      baseUrl: options.baseUrl,
+      timeoutMs: options.timeoutMs,
+      requestId: options.requestId ?? currentRequestId,
+    });
   }
 
   call<T>(method: string, path: string, body?: unknown, init?: BastionRequestInit): Promise<T> {

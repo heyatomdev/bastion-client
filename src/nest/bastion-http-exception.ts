@@ -1,24 +1,42 @@
 import { HttpException } from '@nestjs/common';
 import { BastionHttp, type BastionRequestInit } from '../core/bastion-http.js';
-import { BastionHttpError, type BastionErrorCode } from '../core/errors.js';
+import { BastionErrorCode, BastionHttpError } from '../core/errors.js';
 
 /**
- * The Nest face of a Bastion error: an `HttpException` carrying Bastion's
- * status, so the global filter answers with it unchanged, plus the stable
- * `code` and the upstream message for the handlers that branch on them.
- * `getResponse()` is `{ code, message }`.
+ * The Nest face of a Bastion error, so the global filter answers the browser
+ * per api.md §3/§14:
+ * - 4xx: Bastion's status, `code`, message and `errors` (field errors of a 400);
+ * - Bastion down, timed out or answering 503: 503 `UNAVAILABLE`, generic message;
+ * - any other 5xx: 502 `UPSTREAM`, generic message.
+ *
+ * `getResponse()` is `{ code, message, errors? }`. `upstreamStatus` and
+ * `upstreamMessage` keep Bastion's own for logs and branching; `message`
+ * carries them too, so the filter's 5xx log line says what Bastion answered.
  */
 export class BastionHttpException extends HttpException {
+  readonly upstreamStatus: number;
+
   constructor(
     readonly code: BastionErrorCode,
     status: number,
     readonly upstreamMessage: string,
+    readonly errors?: string[],
   ) {
-    super({ code, message: upstreamMessage }, status);
+    const unavailable = code === BastionErrorCode.UNAVAILABLE || status === 503;
+    const publicStatus = status < 500 ? status : unavailable ? 503 : 502;
+    const body =
+      status < 500
+        ? { code, message: upstreamMessage, ...(errors?.length ? { errors } : {}) }
+        : unavailable
+          ? { code: BastionErrorCode.UNAVAILABLE, message: 'Upstream service unavailable' }
+          : { code: BastionErrorCode.UPSTREAM, message: 'Upstream service error' };
+    super(body, publicStatus);
+    this.upstreamStatus = status;
+    if (status >= 500) this.message = `Bastion ${status}: ${upstreamMessage}`;
   }
 
   static from(err: BastionHttpError): BastionHttpException {
-    return new BastionHttpException(err.code, err.status, err.message);
+    return new BastionHttpException(err.code, err.status, err.message, err.errors);
   }
 }
 

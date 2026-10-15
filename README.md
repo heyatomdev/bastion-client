@@ -6,9 +6,17 @@ Replaces the `src/modules/bastion/` boilerplate every service used to copy by ha
 - `@heyatom/bastion-client` — framework-free core: `JwksVerifier` (kid-indexed cache, unknown-kid refetch with cooldown, stale-on-error), `BastionHttp` (`POST /auth/client`, `POST /events`, any other route), `ServiceTokenProvider` (single-flight refresh ahead of `exp`), payload types.
 - `@heyatom/bastion-client` also carries Bastion's user-API contract: `BastionApiClient` (login, register, OAuth exchange, 2FA, single-flight refresh, logout, sessions, `/me`, profile, social accounts, email/password flows, export, delete), its types (`BastionMe`, `BastionTokenPair`, …) and `BastionErrorCode` (a stable code on every `BastionHttpError`: credentials, app context, refresh token, OAuth code, age gate, OAuth flow, unavailable, upstream). `refreshMemoryMs` tunes how long a refresh answer is remembered per token (default 60 s). Since 0.7.2 `completeAgeVerification(token, birthDate, { currentPassword?, twoFactorCode? })` sends the step-up Bastion requires (as `deleteSelf`), and `UserJwtPayload.ageVerificationRequired?: true` is set only while the account owes the app's age screen: a consumer API can refuse it from the token alone.
 - `@heyatom/bastion-client/webhooks` — `verifyWebhookSignature` (`X-Bastion-Signature-V2` with timestamp + delivery id, secret rotation on both sides; Bastion no longer sends the legacy body-only `X-Bastion-Signature`, so leave `allowLegacySignature` off — it only reopens replay), header constants, payload type.
-- `@heyatom/bastion-client/nest` — NestJS: `BastionModule`, `ServiceClientJwtGuard`, `BastionUserGuard`, `BastionAuditService`, `AuditInterceptor` (attributes to `req.adminUser`, any `AuditActor` shape: `sub` plus optional `tenantId`/`tenantSlug`/`role`/`appSlug`), `@Public()`, `@RequireScope()`, `@Audit()`, `@CurrentClient()`, `@CurrentAdminUser()`.
+- `@heyatom/bastion-client/nest` — NestJS: `BastionModule`, `ServiceClientJwtGuard`, `BastionUserGuard`, `BastionAuditService`, `AuditInterceptor` (attributes to `req.adminUser`, any `AuditActor` shape: `sub` plus optional `tenantId`/`tenantSlug`/`role`/`appSlug`), `@Public()`, `@RequireScope()`, `@Audit()`, `@CurrentClient()`, `@CurrentAdminUser()`, and for an app's own users `AppUserGuard` + `@CurrentUser()`.
 
-Ships CJS and ESM. `jose` v6 is ESM-only, so the CJS build relies on Node's `require(esm)` — Node ≥ 20.19 / 22.12. Peer deps: `jose` (always), `@nestjs/common`, `@nestjs/core`, `rxjs`, `reflect-metadata` (for `/nest`).
+Ships CJS and ESM, no ESM-only runtime dependency (RS256 verification is `node:crypto`), so Jest needs no `transformIgnorePatterns` for it. Node ≥ 20.19. Peer deps, for `/nest` only: `@nestjs/common`, `@nestjs/core`, `rxjs`, `reflect-metadata`.
+
+### 0.8.0
+
+- **Errors.** `BastionHttpError.errors` carries the field errors of a 400 (`code: 'VALIDATION_FAILED'`); a `code` Bastion sends is kept when it is a `BastionErrorCode`. New codes: `VALIDATION_FAILED`, `RATE_LIMITED`. `BastionHttpException` answers a 4xx as Bastion did (`{ code, message, errors? }`) and hides a 5xx (api.md §3/§14): 502 `UPSTREAM` or 503 `UNAVAILABLE` with a generic message; Bastion's own status and message stay on `upstreamStatus`/`upstreamMessage` and in `message`, for the log. Show `errors` in the UI, not just `message`.
+- **`X-Request-Id`** on every call to Bastion: `BastionHttpOptions.requestId` (a getter); in Nest the module tracks the served request and sends its `req.id` (nest-common / pino-http), overridable with `BastionModuleOptions.requestId`.
+- **OAuth.** `oauthStart(provider)` → `{ url, state } | null`; `exchange(code, ctx, state)` now requires `state` (breaking: no CSRF-unprotected exchange).
+- **`AppUserGuard`** (global guard for the app's users, honours `@Public()`, sets `req.user`) and **`@CurrentUser()`**.
+- `jose` is no longer a peer dependency.
 
 ## NestJS
 
@@ -67,9 +75,12 @@ Bastion stores app events as `<serviceSlug>.<event>` — send the bare `resource
 ## App backends: verifying your users' tokens
 
 ```ts
-// BastionJwksService.verifyUserToken(token): a user session token minted for this app
-// (rejects machine tokens, checks aud + appSlug === serviceSlug, requires sub). Build your
-// own guard on it — cookie extraction, suspension, age gate are the app's business.
+// providers: [{ provide: APP_GUARD, useClass: AppUserGuard }]
+// A user session token minted for this app (BastionJwksService.verifyUserToken: rejects machine
+// tokens, checks aud + appSlug === serviceSlug, requires sub). @Public() opts a route out.
+@Get('me')
+me(@CurrentUser() user: UserJwtPayload) { /* ... */ }
+// Suspension, age gate, roles stay the app's business: a second guard after AppUserGuard.
 // Core equivalent: assertUserTokenFor(await verifier.verify(token), 'dbd-builds').
 ```
 
@@ -88,8 +99,26 @@ export class AuthController {
       return await this.bastion.login(dto.email, dto.password, { ip: clientIp(req), userAgent: req.headers['user-agent'] });
     } catch (err) {
       if (err instanceof BastionHttpException && err.code === 'EMAIL_NOT_VERIFIED') throw new ForbiddenException(err.code);
-      throw err; // any other BastionHttpException already carries Bastion's status
+      throw err; // 4xx: Bastion's status, code, errors; 5xx: 502 UPSTREAM / 503 UNAVAILABLE
     }
+  }
+
+  @Public()
+  @Get('oauth/:provider')
+  async oauthStart(@Param('provider') provider: string, @Res() res: Response) {
+    const start = await this.bastion.oauthStart(provider);
+    if (!start) throw new NotFoundException('Unknown OAuth provider');
+    res.cookie('oauthState', start.state, { httpOnly: true, secure: true, sameSite: 'lax', path: '/auth/callback', maxAge: 600_000 });
+    res.redirect(start.url);
+  }
+
+  @Public()
+  @Get('callback')
+  async callback(@Query('code') code: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const state = req.cookies.oauthState; // from the cookie, never from the query
+    res.clearCookie('oauthState', { path: '/auth/callback' });
+    if (!code || !state) throw new UnauthorizedException();
+    return this.bastion.exchange(code, { ip: req.ip, userAgent: req.headers['user-agent'] }, state);
   }
 }
 ```

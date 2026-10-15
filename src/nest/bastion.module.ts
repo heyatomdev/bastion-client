@@ -1,4 +1,12 @@
-import { DynamicModule, Global, Module, Provider } from '@nestjs/common';
+import {
+  DynamicModule,
+  Global,
+  Module,
+  RequestMethod,
+  type MiddlewareConsumer,
+  type NestModule,
+  type Provider,
+} from '@nestjs/common';
 import { BASTION_OPTIONS, type BastionModuleAsyncOptions, type BastionModuleOptions } from './options.js';
 import { BastionJwksService } from './bastion-jwks.service.js';
 import { BastionService } from './bastion.service.js';
@@ -7,6 +15,8 @@ import { ServiceClientJwtGuard } from './guards/service-client-jwt.guard.js';
 import { BastionUserGuard } from './guards/bastion-user.guard.js';
 import { AuditInterceptor } from './interceptors/audit.interceptor.js';
 import { BastionApiClientProvider } from './bastion-api-client.provider.js';
+import { AppUserGuard } from './guards/app-user.guard.js';
+import { requestContextMiddleware } from './request-context.js';
 
 const PROVIDERS = [
   BastionJwksService,
@@ -14,6 +24,7 @@ const PROVIDERS = [
   BastionAuditService,
   ServiceClientJwtGuard,
   BastionUserGuard,
+  AppUserGuard,
   AuditInterceptor,
   BastionApiClientProvider,
 ];
@@ -29,11 +40,16 @@ const PROVIDERS = [
  *   }),
  * })
  * ```
- * Global: import once in `AppModule`, inject anywhere.
+ * Global: import once in `AppModule`, inject anywhere. Every route gets a
+ * middleware that tracks the request, so outbound calls carry its `X-Request-Id`.
  */
 @Global()
 @Module({})
-export class BastionModule {
+export class BastionModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(requestContextMiddleware).forRoutes({ path: '{*splat}', method: RequestMethod.ALL });
+  }
+
   static forRoot(options: BastionModuleOptions): DynamicModule {
     return this.build({ provide: BASTION_OPTIONS, useValue: options });
   }

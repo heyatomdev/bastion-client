@@ -1,4 +1,4 @@
-import { BastionErrorCode, BastionHttpError } from './errors.js';
+import { BastionErrorCode, BastionHttpError, isBastionErrorCode } from './errors.js';
 import type { AuditEventInput, TokenResponse } from './types.js';
 
 export interface BastionHttpOptions {
@@ -6,7 +6,15 @@ export interface BastionHttpOptions {
   /** Per-request timeout, default 8 000 ms. */
   timeoutMs?: number;
   fetch?: typeof fetch;
+  /**
+   * The id of the request being served, sent as `X-Request-Id` on every call
+   * (api.md §7) so Bastion logs it as `clientRequestId`. Read per call: back it
+   * with the framework's request context. A value outside `[A-Za-z0-9._-]{1,64}` is not sent.
+   */
+  requestId?: () => string | undefined;
 }
+
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
 export interface BastionRequestInit {
   token?: string;
@@ -31,18 +39,22 @@ export class BastionHttp {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly requestId?: () => string | undefined;
 
   constructor(options: BastionHttpOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.timeoutMs = options.timeoutMs ?? 8_000;
     // Late-bound on purpose: a consumer (or its tests) may replace global fetch after construction.
     this.fetchImpl = options.fetch ?? ((...args) => fetch(...args));
+    this.requestId = options.requestId;
   }
 
   async call<T>(method: string, path: string, body?: unknown, init: BastionRequestInit = {}): Promise<T> {
     const headers: Record<string, string> = { ...init.headers };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (init.token) headers['Authorization'] = `Bearer ${init.token}`;
+    const requestId = this.requestId?.();
+    if (requestId && REQUEST_ID_PATTERN.test(requestId)) headers['X-Request-Id'] ??= requestId;
 
     let res: Response;
     try {
@@ -57,11 +69,27 @@ export class BastionHttp {
     }
 
     if (!res.ok) {
-      const parsed = (await res.json().catch(() => ({}))) as { message?: string | string[] };
+      // Bastion's error body (api.md §3): `{ code, message, errors? }`; older builds put the field errors in `message`.
+      const parsed = ((await res.json().catch(() => null)) ?? {}) as { message?: unknown; code?: unknown; errors?: unknown };
+      const errors = Array.isArray(parsed.errors)
+        ? parsed.errors.map(String)
+        : Array.isArray(parsed.message)
+          ? parsed.message.map(String)
+          : undefined;
       const message = Array.isArray(parsed.message)
         ? parsed.message.join(', ')
-        : (parsed.message ?? `Bastion error ${res.status}`);
-      throw new BastionHttpError(res.status, message);
+        : typeof parsed.message === 'string'
+          ? parsed.message
+          : `Bastion error ${res.status}`;
+      // A code Bastion still puts in `message` (UNDER_MINIMUM_AGE under `code: FORBIDDEN`) wins: classify reads it.
+      const code = isBastionErrorCode(message)
+        ? undefined
+        : isBastionErrorCode(parsed.code)
+          ? parsed.code
+          : res.status === 400 && errors?.length
+            ? BastionErrorCode.VALIDATION_FAILED
+            : undefined;
+      throw new BastionHttpError(res.status, message, code, errors);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json().catch(() => undefined)) as T;

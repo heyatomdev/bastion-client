@@ -17,6 +17,11 @@ export interface BastionModuleOptions {
   jwksTtlMs?: number;
   /** Expected `iss`. Default `'bastion'`; `null` disables the check. */
   issuer?: string | null;
+  /**
+   * Id sent as `X-Request-Id` on calls to Bastion. Default: `req.id` of the request
+   * being served (pino-http / nest-common `genReqId`), tracked by the module's middleware.
+   */
+  requestId?: () => string | undefined;
   /** `BastionUserGuard`: which apps' user tokens are accepted. Default `['meridian']`. */
   acceptedAppSlugs?: string[];
   /** `BastionUserGuard`: which roles are accepted. Default `['ADMIN', 'OWNER', 'SUPER_ADMIN']`. */

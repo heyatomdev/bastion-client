@@ -1,14 +1,7 @@
-import {
-  decodeProtectedHeader,
-  importJWK,
-  jwtVerify,
-  type JWK,
-  type KeyObject,
-} from 'jose';
+import type { KeyObject } from 'node:crypto';
+import { decodeJwt, importRs256Jwk, verifyRs256 } from './jwt.js';
 import { BastionTokenError } from './errors.js';
 import { silentLogger, type BastionJwtPayload, type BastionLogger } from './types.js';
-
-type Key = CryptoKey | KeyObject | Uint8Array;
 
 export interface JwksVerifierOptions {
   /** Bastion base URL, e.g. `http://bastion:3001`. The JWKS lives at `/.well-known/jwks.json`. */
@@ -37,7 +30,7 @@ const UNKNOWN_KID_REFETCH_COOLDOWN_MS = 30_000;
  * correctly configured consumer should never meet an unknown kid.
  */
 export class JwksVerifier {
-  private keys = new Map<string, Key>();
+  private keys = new Map<string, KeyObject>();
   private fetchedAt = 0;
   private lastUnknownKidRefetchAt = 0;
   private inFlight: Promise<void> | null = null;
@@ -58,13 +51,13 @@ export class JwksVerifier {
   }
 
   async verify(token: string): Promise<BastionJwtPayload> {
-    let kid: string | undefined;
+    let kid: unknown;
     try {
-      ({ kid } = decodeProtectedHeader(token));
+      kid = decodeJwt(token).header.kid;
     } catch {
       throw new BastionTokenError('malformed', 'Malformed token');
     }
-    if (!kid) throw new BastionTokenError('missing_kid', 'Missing kid in JWT header');
+    if (typeof kid !== 'string' || !kid) throw new BastionTokenError('missing_kid', 'Missing kid in JWT header');
 
     await this.ensureFresh();
     let key = this.keys.get(kid);
@@ -78,11 +71,7 @@ export class JwksVerifier {
     }
 
     try {
-      const { payload } = await jwtVerify(token, key, {
-        algorithms: ['RS256'],
-        ...(this.issuer ? { issuer: this.issuer } : {}),
-      });
-      return payload as unknown as BastionJwtPayload;
+      return verifyRs256(token, key, this.issuer) as unknown as BastionJwtPayload;
     } catch {
       throw new BastionTokenError('invalid', 'Invalid token');
     }
@@ -94,11 +83,15 @@ export class JwksVerifier {
       try {
         const res = await this.fetchImpl(this.jwksUrl);
         if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`);
-        const { keys } = (await res.json()) as { keys: JWK[] };
-        const next = new Map<string, Key>();
+        const { keys } = (await res.json()) as { keys: (JsonWebKey & { kid?: string })[] };
+        const next = new Map<string, KeyObject>();
         for (const jwk of keys) {
           if (!jwk.kid) continue;
-          next.set(jwk.kid, await importJWK(jwk, 'RS256'));
+          try {
+            next.set(jwk.kid, importRs256Jwk(jwk));
+          } catch (err) {
+            this.logger.warn(`JWKS: skipping kid=${jwk.kid}: ${(err as Error).message}`);
+          }
         }
         this.keys = next;
         this.fetchedAt = Date.now();

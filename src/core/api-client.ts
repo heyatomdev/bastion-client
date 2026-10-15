@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { BastionHttp, BastionRequestInit } from './bastion-http.js';
 import { silentLogger, type BastionLogger } from './types.js';
 import type {
@@ -107,13 +107,30 @@ export class BastionApiClient {
   }
 
   /**
-   * Trades the one-time OAuth code for tokens. `state` is the value the app put
-   * on the initiate URL, read back from its own cookie/session (never from the
-   * callback query): Bastion refuses a code minted under a different one, which
-   * is what stops an attacker's code from being redeemed in a victim's browser.
+   * Starts an OAuth login: the provider's Bastion initiate URL with a fresh
+   * `state` on it, or `null` for a provider the app doesn't offer. Keep `state`
+   * in an httpOnly `SameSite=Lax` cookie scoped to the callback path, redirect
+   * the browser to `url`, then pass the cookie's value to `exchange`.
    */
-  exchange(code: string, ctx?: BastionClientContext, state?: string): Promise<BastionLoginResult> {
-    return this.call('POST', '/auth/exchange', { code, appSlug: this.appSlug, ...(state !== undefined ? { state } : {}) }, { headers: BastionApiClient.clientHeaders(ctx) });
+  async oauthStart(provider: string): Promise<{ url: string; state: string } | null> {
+    const method = (await this.getAuthMethods()).oauth.find((m) => m.provider === provider);
+    if (!method) return null;
+    const state = randomBytes(32).toString('base64url');
+    const url = new URL(method.authorizeUrl);
+    url.searchParams.set('state', state);
+    return { url: url.toString(), state };
+  }
+
+  /**
+   * Trades the one-time OAuth code for tokens. `state` is the value from
+   * `oauthStart`, read back from the app's own cookie (never from the callback
+   * query): Bastion refuses a code minted under a different one, which is what
+   * stops an attacker's code from being redeemed in a victim's browser (login CSRF).
+   * Required: an empty `state` throws before calling Bastion.
+   */
+  exchange(code: string, ctx: BastionClientContext | undefined, state: string): Promise<BastionLoginResult> {
+    if (!state) return Promise.reject(new Error('BastionApiClient.exchange: state is required (see oauthStart)'));
+    return this.call('POST', '/auth/exchange', { code, appSlug: this.appSlug, state }, { headers: BastionApiClient.clientHeaders(ctx) });
   }
 
   completeTwoFactor(twoFactorToken: string, code: string, ctx?: BastionClientContext): Promise<BastionTokenPair> {

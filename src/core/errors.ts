@@ -34,7 +34,10 @@ export const BastionErrorCode = {
   INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
   /** `POST /auth/exchange` refused the one-time OAuth code: expired, already used, or minted for another app. */
   INVALID_OAUTH_CODE: 'INVALID_OAUTH_CODE',
+  /** A 400 carrying field errors (`BastionHttpError.errors`): Bastion's `ValidationPipe`. */
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
   CONFLICT: 'CONFLICT',
+  RATE_LIMITED: 'RATE_LIMITED',
   BIRTH_DATE_REQUIRED: 'BIRTH_DATE_REQUIRED',
   BIRTH_DATE_INVALID: 'BIRTH_DATE_INVALID',
   UNDER_MINIMUM_AGE: 'UNDER_MINIMUM_AGE',
@@ -77,11 +80,19 @@ export function classifyBastionError(status: number, message: string): BastionEr
   }
   if (status === 403 && /no access to this app/i.test(message)) return BastionErrorCode.NO_APP_ACCESS;
   if (status === 409) return BastionErrorCode.CONFLICT;
+  if (status === 429) return BastionErrorCode.RATE_LIMITED;
   if (status === 503) return BastionErrorCode.UNAVAILABLE;
   return BastionErrorCode.UPSTREAM;
 }
 
-/** A non-2xx answer from Bastion's HTTP API, or Bastion unreachable (`status` 503, code `UNAVAILABLE`). */
+export function isBastionErrorCode(value: unknown): value is BastionErrorCode {
+  return typeof value === 'string' && Object.hasOwn(BastionErrorCode, value);
+}
+
+/**
+ * A non-2xx answer from Bastion's HTTP API, or Bastion unreachable (`status` 503, code `UNAVAILABLE`).
+ * `message` and `errors` are Bastion's own: fine to show for a 4xx, never for a 5xx (api.md §14).
+ */
 export class BastionHttpError extends Error {
   readonly code: BastionErrorCode;
 
@@ -89,6 +100,8 @@ export class BastionHttpError extends Error {
     readonly status: number,
     message: string,
     code?: BastionErrorCode,
+    /** Field errors of a 400 (`VALIDATION_FAILED`), one line each. */
+    readonly errors?: string[],
   ) {
     super(message);
     this.name = 'BastionHttpError';

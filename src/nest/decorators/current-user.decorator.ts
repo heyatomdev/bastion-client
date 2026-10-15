@@ -12,3 +12,9 @@ export const CurrentAdminUser = createParamDecorator(
   (_: unknown, ctx: ExecutionContext): UserJwtPayload | undefined =>
     ctx.switchToHttp().getRequest<{ adminUser?: UserJwtPayload }>().adminUser,
 );
+
+/** The app user's payload set by `AppUserGuard`. */
+export const CurrentUser = createParamDecorator(
+  (_: unknown, ctx: ExecutionContext): UserJwtPayload | undefined =>
+    ctx.switchToHttp().getRequest<{ user?: UserJwtPayload }>().user,
+);

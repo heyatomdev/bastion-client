@@ -4,6 +4,10 @@ import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { ServiceClientJwtGuard } from '../src/nest/guards/service-client-jwt.guard.js';
 import { BastionUserGuard } from '../src/nest/guards/bastion-user.guard.js';
+import { AppUserGuard } from '../src/nest/guards/app-user.guard.js';
+import { BastionHttpException } from '../src/nest/bastion-http-exception.js';
+import { BastionHttpError } from '../src/core/errors.js';
+import { currentRequestId, requestContextMiddleware } from '../src/nest/request-context.js';
 import { IS_PUBLIC_KEY, REQUIRED_SCOPES_KEY } from '../src/nest/index.js';
 import type { BastionJwksService } from '../src/nest/bastion-jwks.service.js';
 import type { BastionAuditService } from '../src/nest/bastion-audit.service.js';
@@ -71,5 +75,58 @@ describe('BastionUserGuard', () => {
     expect(write).toHaveBeenCalledWith('admin.access_denied', expect.objectContaining({ metadata: expect.objectContaining({ reason: 'app_not_allowed' }) }));
 
     await expect(new BastionUserGuard(jwksReturning({ ...userClaims, role: 'VIEWER' }), auditSpy, { ...options, acceptedRoles: ['ADMIN'] }).canActivate(ctx('t').ctx)).rejects.toThrow('Insufficient role');
+  });
+});
+
+describe('AppUserGuard', () => {
+  const jwksUser = (payload: unknown) =>
+    ({ verifyUserToken: vi.fn(async () => payload) }) as unknown as BastionJwksService;
+
+  it('lets @Public through, requires a Bearer token, sets req.user', async () => {
+    const guard = new AppUserGuard(jwksUser(userClaims), new Reflector());
+    await expect(guard.canActivate(ctx(undefined, { [IS_PUBLIC_KEY]: true }).ctx)).resolves.toBe(true);
+    await expect(guard.canActivate(ctx(undefined).ctx)).rejects.toBeInstanceOf(UnauthorizedException);
+    const { ctx: c, req } = ctx('t');
+    await expect(guard.canActivate(c)).resolves.toBe(true);
+    expect(req.user).toMatchObject({ sub: 'user-1' });
+  });
+
+  it('propagates the verifier refusal (machine token, other app)', async () => {
+    const jwks = { verifyUserToken: vi.fn(async () => { throw new UnauthorizedException('Invalid app context'); }) } as unknown as BastionJwksService;
+    await expect(new AppUserGuard(jwks, new Reflector()).canActivate(ctx('t').ctx)).rejects.toThrow('Invalid app context');
+  });
+});
+
+describe('BastionHttpException', () => {
+  it('passes a 4xx through with its field errors', () => {
+    const e = BastionHttpException.from(new BastionHttpError(400, 'Validation failed', 'VALIDATION_FAILED', ['x is bad']));
+    expect(e.getStatus()).toBe(400);
+    expect(e.getResponse()).toEqual({ code: 'VALIDATION_FAILED', message: 'Validation failed', errors: ['x is bad'] });
+  });
+
+  it('hides a 5xx behind 502 UPSTREAM / 503 UNAVAILABLE, keeping the detail for the log', () => {
+    const e500 = BastionHttpException.from(new BastionHttpError(500, 'relation "users" does not exist'));
+    expect(e500.getStatus()).toBe(502);
+    expect(e500.getResponse()).toEqual({ code: 'UPSTREAM', message: 'Upstream service error' });
+    expect(e500.message).toContain('relation "users"');
+    expect(e500.upstreamStatus).toBe(500);
+
+    const down = BastionHttpException.from(new BastionHttpError(503, 'Bastion unreachable: ECONNREFUSED 10.0.0.3', 'UNAVAILABLE'));
+    expect(down.getStatus()).toBe(503);
+    expect(down.getResponse()).toEqual({ code: 'UNAVAILABLE', message: 'Upstream service unavailable' });
+  });
+});
+
+describe('request context', () => {
+  it('exposes req.id across the async chain, read lazily', async () => {
+    const req: { id?: unknown } = {};
+    const seen = await new Promise<string | undefined>((resolve) =>
+      requestContextMiddleware(req, {}, () => {
+        req.id = 'r-1'; // pino-http may set it after this middleware
+        setTimeout(() => resolve(currentRequestId()), 0);
+      }),
+    );
+    expect(seen).toBe('r-1');
+    expect(currentRequestId()).toBeUndefined();
   });
 });

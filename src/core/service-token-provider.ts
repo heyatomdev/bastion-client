@@ -1,4 +1,4 @@
-import { decodeJwt } from 'jose';
+import { decodeJwt } from './jwt.js';
 import type { BastionHttp, ClientAuthInput } from './bastion-http.js';
 import { silentLogger, type BastionLogger } from './types.js';
 
@@ -84,7 +84,7 @@ export class ServiceTokenProvider {
     const credential = this.resolveCredential(serviceSlug);
     if (!credential?.apiKey) throw new Error(`Bastion service client for "${serviceSlug}" not configured`);
     const { accessToken } = await this.http.clientAuth(credential);
-    const { exp, tenantId } = decodeJwt(accessToken) as { exp?: number; tenantId?: string };
+    const { exp, tenantId } = decodeJwt(accessToken).payload as { exp?: number; tenantId?: string };
     this.cache.set(serviceSlug, {
       token: accessToken,
       expiresAt: exp ? exp * 1000 : Date.now() + FALLBACK_TTL_MS,

@@ -35,15 +35,28 @@ describe('BastionApiClient', () => {
     expect(init.headers).toMatchObject({ 'X-Real-IP': '1.2.3.4', 'User-Agent': 'UA' });
   });
 
-  it('sends the flow state on exchange only when given', async () => {
+  it('sends the flow state on exchange and refuses to exchange without one', async () => {
     const { http, calls } = fakeHttp(() => ({ status: 200, body: { accessToken: 'a', refreshToken: 'r' } }));
     const api = new BastionApiClient({ http, appSlug: 'meridian' });
 
     await api.exchange('c', undefined, 's');
-    await api.exchange('c');
+    await expect(api.exchange('c', undefined, '')).rejects.toThrow('state is required');
 
+    expect(calls).toHaveLength(1);
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ code: 'c', appSlug: 'meridian', state: 's' });
-    expect(JSON.parse(calls[1].init.body as string)).toEqual({ code: 'c', appSlug: 'meridian' });
+  });
+
+  it('oauthStart puts a fresh state on the provider URL, null for an unknown provider', async () => {
+    const { http } = fakeHttp(() => ({ status: 200, body: { oauth: [{ provider: 'twitch', authorizeUrl: 'http://bastion/auth/oauth/twitch?appSlug=x' }] } }));
+    const api = new BastionApiClient({ http, appSlug: 'x' });
+
+    const a = await api.oauthStart('twitch');
+    const b = await api.oauthStart('twitch');
+    expect(a!.state).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(a!.state).not.toBe(b!.state);
+    expect(new URL(a!.url).searchParams.get('state')).toBe(a!.state);
+    expect(new URL(a!.url).searchParams.get('appSlug')).toBe('x');
+    await expect(api.oauthStart('google')).resolves.toBeNull();
   });
 
   it('single-flights concurrent refreshes and logs out the rotated successor', async () => {
@@ -133,5 +146,39 @@ describe('BastionApiClient — 0.7.2 additions', () => {
     await api.completeAgeVerification('user-token', '2000-01-31', { currentPassword: 'pw', twoFactorCode: '123456' });
     expect(JSON.parse(calls[1].init.body as string)).toEqual({ birthDate: '2000-01-31', currentPassword: 'pw', twoFactorCode: '123456' });
     expect(calls[1].init.headers).toMatchObject({ Authorization: 'Bearer user-token' });
+  });
+});
+
+describe('BastionHttp — 0.8.0', () => {
+  it('keeps the field errors and the code of a 400, in both body shapes', async () => {
+    const current = fakeHttp(() => ({ status: 400, body: { statusCode: 400, code: 'VALIDATION_FAILED', message: 'Validation failed', errors: ['email must be an email'] } }));
+    await expect(current.http.call('POST', '/x')).rejects.toMatchObject({ status: 400, code: 'VALIDATION_FAILED', message: 'Validation failed', errors: ['email must be an email'] });
+
+    const legacy = fakeHttp(() => ({ status: 400, body: { message: ['a is bad', 'b is bad'], error: 'Bad Request' } }));
+    await expect(legacy.http.call('POST', '/x')).rejects.toMatchObject({ code: 'VALIDATION_FAILED', message: 'a is bad, b is bad', errors: ['a is bad', 'b is bad'] });
+
+    const coded = fakeHttp(() => ({ status: 409, body: { code: 'CONFLICT', message: 'Email taken' } }));
+    await expect(coded.http.call('POST', '/x')).rejects.toMatchObject({ code: 'CONFLICT', errors: undefined });
+
+    const inMessage = fakeHttp(() => ({ status: 403, body: { code: 'FORBIDDEN', message: 'UNDER_MINIMUM_AGE' } }));
+    await expect(inMessage.http.call('POST', '/x')).rejects.toMatchObject({ code: 'UNDER_MINIMUM_AGE' });
+
+    const unknownCode = fakeHttp(() => ({ status: 401, body: { code: 'UNAUTHORIZED', message: 'Refresh token expired' } }));
+    await expect(unknownCode.http.call('POST', '/x')).rejects.toMatchObject({ code: 'INVALID_REFRESH_TOKEN' });
+  });
+
+  it('sends the served request id as X-Request-Id, unless malformed or set by the caller', async () => {
+    let id: string | undefined = 'req-1';
+    const calls: RequestInit[] = [];
+    const http = new BastionHttp({
+      baseUrl: 'http://bastion',
+      requestId: () => id,
+      fetch: (async (_: string, init: RequestInit) => (calls.push(init), { ok: true, status: 204 })) as unknown as typeof fetch,
+    });
+    await http.call('GET', '/a');
+    await http.call('GET', '/a', undefined, { headers: { 'X-Request-Id': 'mine' } });
+    id = 'bad\r\nid';
+    await http.call('GET', '/a');
+    expect(calls.map((c) => (c.headers as Record<string, string>)['X-Request-Id'])).toEqual(['req-1', 'mine', undefined]);
   });
 });
