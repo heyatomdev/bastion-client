@@ -20,6 +20,8 @@ export interface BastionModuleOptions {
   /**
    * Id sent as `X-Request-Id` on calls to Bastion. Default: `req.id` of the request
    * being served (pino-http / nest-common `genReqId`), tracked by the module's middleware.
+   * Express only: under Fastify the middleware sees the raw request, which has no `id`,
+   * so pass a getter here (e.g. from nestjs-cls).
    */
   requestId?: () => string | undefined;
   /** `BastionUserGuard`: which apps' user tokens are accepted. Default `['meridian']`. */

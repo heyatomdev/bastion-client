@@ -1,10 +1,12 @@
 import 'reflect-metadata';
-import { ForbiddenException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
+import { ForbiddenException, RequestMethod, UnauthorizedException, type ExecutionContext, type MiddlewareConsumer } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { ServiceClientJwtGuard } from '../src/nest/guards/service-client-jwt.guard.js';
 import { BastionUserGuard } from '../src/nest/guards/bastion-user.guard.js';
 import { AppUserGuard } from '../src/nest/guards/app-user.guard.js';
+import { BastionModule } from '../src/nest/bastion.module.js';
+import { BastionService } from '../src/nest/bastion.service.js';
 import { BastionHttpException } from '../src/nest/bastion-http-exception.js';
 import { BastionHttpError } from '../src/core/errors.js';
 import { currentRequestId, requestContextMiddleware } from '../src/nest/request-context.js';
@@ -128,5 +130,41 @@ describe('request context', () => {
     );
     expect(seen).toBe('r-1');
     expect(currentRequestId()).toBeUndefined();
+  });
+});
+
+describe('BastionModule request id wiring', () => {
+  it('registers the context middleware on every route', () => {
+    const forRoutes = vi.fn();
+    const apply = vi.fn(() => ({ forRoutes }));
+    new BastionModule().configure({ apply } as unknown as MiddlewareConsumer);
+    expect(apply).toHaveBeenCalledWith(requestContextMiddleware);
+    expect(forRoutes).toHaveBeenCalledWith({ path: '{*splat}', method: RequestMethod.ALL });
+  });
+
+  it('BastionService sends the served req.id by default', async () => {
+    const seen: (string | undefined)[] = [];
+    vi.stubGlobal('fetch', async (_: string, init: RequestInit) => {
+      seen.push((init.headers as Record<string, string>)['X-Request-Id']);
+      return { ok: true, status: 204 } as Response;
+    });
+    try {
+      const service = new BastionService({ baseUrl: 'http://b', serviceSlug: 's' });
+      await new Promise<void>((resolve, reject) =>
+        requestContextMiddleware({ id: 'srv-1' }, {}, () => void service.call('GET', '/x').then(() => resolve(), reject)),
+      );
+      expect(seen).toEqual(['srv-1']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('BastionHttpException — codes', () => {
+  it('omits an empty errors array; an unclassified 4xx keeps Bastion code or the status default', () => {
+    expect(BastionHttpException.from(new BastionHttpError(400, 'Bad', 'VALIDATION_FAILED', [])).getResponse()).toEqual({ code: 'VALIDATION_FAILED', message: 'Bad' });
+    expect(BastionHttpException.from(new BastionHttpError(404, 'User not found')).getResponse()).toMatchObject({ code: 'NOT_FOUND' });
+    expect(BastionHttpException.from(new BastionHttpError(422, 'Too short', undefined, undefined, 'PASSWORD_TOO_SHORT')).getResponse()).toMatchObject({ code: 'PASSWORD_TOO_SHORT' });
+    expect(BastionHttpException.from(new BastionHttpError(422, 'Nope')).getResponse()).toMatchObject({ code: 'UNPROCESSABLE' });
   });
 });

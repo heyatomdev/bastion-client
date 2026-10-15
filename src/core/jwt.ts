@@ -3,7 +3,8 @@ import { createPublicKey, verify, type KeyObject } from 'node:crypto';
 /** Header and payload of a compact JWS, unverified. Throws on anything that isn't one. */
 export function decodeJwt(token: string): { header: Record<string, unknown>; payload: Record<string, unknown> } {
   const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('not a compact JWS');
+  // Strict alphabet: Buffer's base64url decoder skips padding and junk, which would let one token have many spellings.
+  if (parts.length !== 3 || !parts.every((part) => /^[A-Za-z0-9_-]*$/.test(part))) throw new Error('not a compact JWS');
   const header = JSON.parse(Buffer.from(parts[0]!, 'base64url').toString('utf8')) as unknown;
   const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as unknown;
   if (!isObject(header) || !isObject(payload)) throw new Error('header or payload not an object');

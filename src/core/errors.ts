@@ -102,6 +102,8 @@ export class BastionHttpError extends Error {
     code?: BastionErrorCode,
     /** Field errors of a 400 (`VALIDATION_FAILED`), one line each. */
     readonly errors?: string[],
+    /** Bastion's own `code` when it is not a `BastionErrorCode` (`NOT_FOUND`, `PASSWORD_TOO_SHORT`, …). */
+    readonly upstreamCode?: string,
   ) {
     super(message);
     this.name = 'BastionHttpError';

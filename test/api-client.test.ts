@@ -164,7 +164,7 @@ describe('BastionHttp — 0.8.0', () => {
     await expect(inMessage.http.call('POST', '/x')).rejects.toMatchObject({ code: 'UNDER_MINIMUM_AGE' });
 
     const unknownCode = fakeHttp(() => ({ status: 401, body: { code: 'UNAUTHORIZED', message: 'Refresh token expired' } }));
-    await expect(unknownCode.http.call('POST', '/x')).rejects.toMatchObject({ code: 'INVALID_REFRESH_TOKEN' });
+    await expect(unknownCode.http.call('POST', '/x')).rejects.toMatchObject({ code: 'INVALID_REFRESH_TOKEN', upstreamCode: 'UNAUTHORIZED' });
   });
 
   it('sends the served request id as X-Request-Id, unless malformed or set by the caller', async () => {
@@ -176,9 +176,10 @@ describe('BastionHttp — 0.8.0', () => {
       fetch: (async (_: string, init: RequestInit) => (calls.push(init), { ok: true, status: 204 })) as unknown as typeof fetch,
     });
     await http.call('GET', '/a');
-    await http.call('GET', '/a', undefined, { headers: { 'X-Request-Id': 'mine' } });
+    await http.call('GET', '/a', undefined, { headers: { 'x-request-id': 'mine' } });
     id = 'bad\r\nid';
     await http.call('GET', '/a');
-    expect(calls.map((c) => (c.headers as Record<string, string>)['X-Request-Id'])).toEqual(['req-1', 'mine', undefined]);
+    expect(calls.map((c) => (c.headers as Record<string, string>)['X-Request-Id'])).toEqual(['req-1', undefined, undefined]);
+    expect((calls[1].headers as Record<string, string>)['x-request-id']).toBe('mine');
   });
 });

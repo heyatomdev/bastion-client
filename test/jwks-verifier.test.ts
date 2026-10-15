@@ -1,4 +1,5 @@
 import { createHmac, generateKeyPairSync } from 'node:crypto';
+import { importRs256Jwk, verifyRs256 } from '../src/core/jwt.js';
 import { describe, expect, it } from 'vitest';
 import { BastionTokenError, JwksVerifier } from '../src/core/index.js';
 import { fakeJwksFetch, makeIssuer, serviceClaims } from './helpers.js';
@@ -91,5 +92,26 @@ describe('JwksVerifier', () => {
 
     await expect(new JwksVerifier({ baseUrl: 'http://b', fetch: fetchImpl }).verify(token)).rejects.toMatchObject({ code: 'invalid' });
     await expect(new JwksVerifier({ baseUrl: 'http://b', fetch: fetchImpl, issuer: null }).verify(token)).resolves.toBeDefined();
+  });
+});
+
+describe('jwt helpers', () => {
+  it('rejects a crit header, padded or junk-laden segments, and skips non-RSA or enc keys', async () => {
+    const issuer = await makeIssuer();
+    const { fetchImpl } = fakeJwksFetch(() => ({ keys: [issuer.jwk] }));
+    const verifier = new JwksVerifier({ baseUrl: 'http://bastion', fetch: fetchImpl });
+    const token = await issuer.sign(serviceClaims);
+    await expect(verifier.verify(token)).resolves.toBeTruthy();
+    await expect(verifier.verify(`${token}==`)).rejects.toMatchObject({ code: 'malformed' });
+    await expect(verifier.verify(`${token}!`)).rejects.toMatchObject({ code: 'malformed' });
+
+    const key = importRs256Jwk(issuer.jwk as JsonWebKey);
+    const [, p, s] = token.split('.');
+    const critHeader = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'kid-1', crit: ['b64'] })).toString('base64url');
+    expect(() => verifyRs256(`${critHeader}.${p}.${s}`, key, 'bastion')).toThrow('crit');
+
+    const ec = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ format: 'jwk' });
+    expect(() => importRs256Jwk(ec)).toThrow('not an RS256 signing key');
+    expect(() => importRs256Jwk({ ...issuer.jwk, use: 'enc' } as JsonWebKey)).toThrow('not an RS256 signing key');
   });
 });

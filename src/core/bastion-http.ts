@@ -54,7 +54,8 @@ export class BastionHttp {
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (init.token) headers['Authorization'] = `Bearer ${init.token}`;
     const requestId = this.requestId?.();
-    if (requestId && REQUEST_ID_PATTERN.test(requestId)) headers['X-Request-Id'] ??= requestId;
+    const callerSetId = Object.keys(headers).some((k) => k.toLowerCase() === 'x-request-id');
+    if (requestId && REQUEST_ID_PATTERN.test(requestId) && !callerSetId) headers['X-Request-Id'] = requestId;
 
     let res: Response;
     try {
@@ -89,7 +90,8 @@ export class BastionHttp {
           : res.status === 400 && errors?.length
             ? BastionErrorCode.VALIDATION_FAILED
             : undefined;
-      throw new BastionHttpError(res.status, message, code, errors);
+      const upstreamCode = typeof parsed.code === 'string' && !isBastionErrorCode(parsed.code) ? parsed.code : undefined;
+      throw new BastionHttpError(res.status, message, code, errors, upstreamCode);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json().catch(() => undefined)) as T;
