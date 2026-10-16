@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0
+
+### Added
+
+- `verifyWebhookSignature` verifies [Standard Webhooks](https://www.standardwebhooks.com/) headers (`webhook-id`, `webhook-timestamp`, `webhook-signature`: space-separated `v1,<base64 HMAC-SHA256("<id>.<timestamp>.<body>")>`, secret used as UTF-8). When any of them is present they are the ones checked: same tolerance, any secret against any `v1` entry, `deliveryId` = `webhook-id`, result `version: 'standard'`.
+- Header name constants `WEBHOOK_ID_HEADER`, `WEBHOOK_TIMESTAMP_HEADER`, `WEBHOOK_SIGNATURE_HEADER`.
+
+### Changed
+
+- Without Standard Webhooks headers, `X-Bastion-Signature-V2` is verified exactly as before, so receivers keep working against an older Bastion. Bastion sends both for one release and will then drop V2. `allowLegacySignature` is unchanged.
+- Whitespace-only entries in `secrets` (e.g. `' '` from an unset env var) are ignored instead of keying the HMAC; if none is left the result is `{ ok: false, reason: 'missing' }`. Other secrets are still used byte-exact (not trimmed).
+
+### Breaking (types)
+
+- `VerifyWebhookResult` gains the `version: 'standard'` variant: an exhaustive `switch` on `version` needs the new case.
+
 ## 0.8.1
 
 ### Added

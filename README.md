@@ -207,8 +207,12 @@ if (!result.ok) throw new UnauthorizedException(result.reason);
 // result.deliveryId: store it and ignore repeats
 ```
 
-Checks `X-Bastion-Signature-V2` (timestamp + delivery id + body, 5 min tolerance). Leave
-`allowLegacySignature` off.
+Checks [Standard Webhooks](https://www.standardwebhooks.com/) headers (`webhook-id`,
+`webhook-timestamp`, `webhook-signature`) when present: HMAC-SHA256 over id + timestamp + body,
+5 min tolerance, secret used as a UTF-8 string, `result.deliveryId` = `webhook-id`. Without them
+it falls back to `X-Bastion-Signature-V2` (same guarantees), so it works against an older Bastion
+too; Bastion will stop sending V2 in a later release. `result.version` says which one matched.
+Leave `allowLegacySignature` off.
 
 ## Changelog
 
