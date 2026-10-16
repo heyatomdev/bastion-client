@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+### Added
+
+- Error code `STEP_UP_FAILED`: the 401 Bastion answers when the current password or 2FA code of a step-up protected route is wrong (or the step-up counter is locked). Tells a wrong factor apart from a dead session, also a 401 (`INVALID_CREDENTIALS`). Needs a Bastion that sends `code: 'STEP_UP_FAILED'`; an older one still classifies as `INVALID_CREDENTIALS`.
+
 ## 0.8.0
 
 ### Breaking

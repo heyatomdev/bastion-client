@@ -36,6 +36,8 @@ export const BastionErrorCode = {
   INVALID_OAUTH_CODE: 'INVALID_OAUTH_CODE',
   /** A 400 carrying field errors (`BastionHttpError.errors`): Bastion's `ValidationPipe`. */
   VALIDATION_FAILED: 'VALIDATION_FAILED',
+  /** A 401 from a step-up protected route (password change, email change, 2FA setup/confirm/disable, account delete): the current password or 2FA code is wrong, or the step-up counter is locked. The session is fine — do not log the user out. Bastion sends it as `code`; an older Bastion sends a plain 401, classified `INVALID_CREDENTIALS`. */
+  STEP_UP_FAILED: 'STEP_UP_FAILED',
   CONFLICT: 'CONFLICT',
   RATE_LIMITED: 'RATE_LIMITED',
   BIRTH_DATE_REQUIRED: 'BIRTH_DATE_REQUIRED',

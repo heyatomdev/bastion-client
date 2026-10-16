@@ -143,7 +143,8 @@ Every failed call throws `BastionHttpError` (core) or `BastionHttpException` (Ne
 
 `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `NO_APP_ACCESS`, `ACCOUNT_INACTIVE`,
 `INVALID_APP_CONTEXT` (your configuration, not the user), `INVALID_REFRESH_TOKEN`,
-`INVALID_OAUTH_CODE`, `VALIDATION_FAILED`, `CONFLICT`, `RATE_LIMITED`, the age-gate codes
+`INVALID_OAUTH_CODE`, `VALIDATION_FAILED`, `STEP_UP_FAILED` (wrong current password or 2FA
+code on a step-up route: the session is fine), `CONFLICT`, `RATE_LIMITED`, the age-gate codes
 (`BIRTH_DATE_REQUIRED`, `BIRTH_DATE_INVALID`, `UNDER_MINIMUM_AGE`), the OAuth flow codes
 (`OAUTH_*`), `UNAVAILABLE` (Bastion unreachable or timed out) and `UPSTREAM`.
 

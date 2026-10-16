@@ -157,6 +157,9 @@ describe('BastionHttp — 0.8.0', () => {
     const legacy = fakeHttp(() => ({ status: 400, body: { message: ['a is bad', 'b is bad'], error: 'Bad Request' } }));
     await expect(legacy.http.call('POST', '/x')).rejects.toMatchObject({ code: 'VALIDATION_FAILED', message: 'a is bad, b is bad', errors: ['a is bad', 'b is bad'] });
 
+    const stepUp = fakeHttp(() => ({ status: 401, body: { statusCode: 401, code: 'STEP_UP_FAILED', factor: 'password', message: 'Current password is required' } }));
+    await expect(stepUp.http.call('PATCH', '/auth/me/password')).rejects.toMatchObject({ status: 401, code: 'STEP_UP_FAILED', upstreamCode: undefined });
+
     const coded = fakeHttp(() => ({ status: 409, body: { code: 'CONFLICT', message: 'Email taken' } }));
     await expect(coded.http.call('POST', '/x')).rejects.toMatchObject({ code: 'CONFLICT', errors: undefined });
 
