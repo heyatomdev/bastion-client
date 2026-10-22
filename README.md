@@ -1,3 +1,14 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/heyatomdev/bastion-client/main/docs/brand/banner.png" width="500" alt="HeyAtom @heyatom/bastion-client" />
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@heyatom/bastion-client"><img src="https://img.shields.io/npm/v/@heyatom/bastion-client" alt="npm version" /></a>
+  <a href="https://github.com/heyatomdev/bastion-client/actions/workflows/test.yml"><img src="https://github.com/heyatomdev/bastion-client/actions/workflows/test.yml/badge.svg?branch=main" alt="Test" /></a>
+  <img src="https://img.shields.io/node/v/@heyatom/bastion-client" alt="Node version" />
+  <img src="https://img.shields.io/npm/l/@heyatom/bastion-client" alt="License" />
+</p>
+
 # @heyatom/bastion-client
 
 Client SDK for [Bastion](https://github.com/heyatomdev/bastion), the HeyAtom identity provider.

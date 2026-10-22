@@ -133,3 +133,9 @@ del secret (lista di secret accettati, qualsiasi `v1`). Bastion non manda più l
   `version` e pubblica con npm trusted publishing (OIDC, provenance inclusa).
 - Il pacchetto pubblicato contiene `dist`, `README.md` e `CHANGELOG.md`: niente in quei file deve
   dipendere da path o servizi interni.
+
+## Banner del README
+
+`docs/brand/banner.html` → `banner.png` con `docs/brand/render.sh` (stessa pipeline di
+`heyatom-portfolio/og`; mano ed esagoni copiati da lì). `docs/` è fuori da `files`: il README lo carica da
+`raw.githubusercontent.com` (URL assoluto, così npm lo mostra).
