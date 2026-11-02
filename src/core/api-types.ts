@@ -154,9 +154,14 @@ export interface BastionUserAuditEvent {
   createdAt: string;
 }
 
-export interface BastionUserAuditEventsPage {
-  data: BastionUserAuditEvent[];
+export interface BastionPageMeta {
   total: number;
   page: number;
   limit: number;
+  totalPages: number;
+}
+
+export interface BastionUserAuditEventsPage {
+  data: BastionUserAuditEvent[];
+  meta: BastionPageMeta;
 }

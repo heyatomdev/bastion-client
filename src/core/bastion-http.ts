@@ -16,6 +16,19 @@ export interface BastionHttpOptions {
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
+/**
+ * Bastion answers `{ data }` (or `{ data, meta }` for a page) from 2.0; earlier builds answer the
+ * bare body. An object whose only key is `data` gives back `data`; a page, an array, a bare body
+ * or no body passes through unchanged, so every caller reads the same shape from both.
+ */
+export function unwrapData(body: unknown): unknown {
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const keys = Object.keys(body);
+    if (keys.length === 1 && keys[0] === 'data') return (body as { data: unknown }).data;
+  }
+  return body;
+}
+
 export interface BastionRequestInit {
   token?: string;
   headers?: Record<string, string>;
@@ -31,9 +44,10 @@ export interface ClientAuthInput {
 /**
  * Outbound calls to Bastion. Nothing here verifies inbound tokens — that is
  * `JwksVerifier`. `call` is public so a service can reach any route with the
- * same error handling: a non-2xx answer becomes `BastionHttpError` with the
- * status and a stable `code`; Bastion unreachable or timed out is a 503
- * `UNAVAILABLE`. Pass the browser's IP as `X-Real-IP` on user-facing calls.
+ * same error handling and the same success shape (`unwrapData`): a non-2xx
+ * answer becomes `BastionHttpError` with the status and a stable `code`;
+ * Bastion unreachable or timed out is a 503 `UNAVAILABLE`. Pass the browser's
+ * IP as `X-Real-IP` on user-facing calls.
  */
 export class BastionHttp {
   private readonly baseUrl: string;
@@ -82,7 +96,9 @@ export class BastionHttp {
         : typeof parsed.message === 'string'
           ? parsed.message
           : `Bastion error ${res.status}`;
-      // A code Bastion still puts in `message` (UNDER_MINIMUM_AGE under `code: FORBIDDEN`) wins: classify reads it.
+      // A code in `message` wins: an older Bastion sends it under a generic `code` that is also one
+      // of ours (ALREADY_LINKED under `code: CONFLICT`); classify reads it. Otherwise Bastion's
+      // `code` wins when it is one of ours, so a cleaned-up `message` still carries its code.
       const code = isBastionErrorCode(message)
         ? undefined
         : isBastionErrorCode(parsed.code)
@@ -94,7 +110,7 @@ export class BastionHttp {
       throw new BastionHttpError(res.status, message, code, errors, upstreamCode);
     }
     if (res.status === 204) return undefined as T;
-    return (await res.json().catch(() => undefined)) as T;
+    return unwrapData(await res.json().catch(() => undefined)) as T;
   }
 
   clientAuth(input: ClientAuthInput): Promise<TokenResponse> {
