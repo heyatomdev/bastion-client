@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.0
+
+Reads both the current Bastion answers and the `{ data }` envelope Bastion 2.0 will send, so you can upgrade before Bastion does.
+
+### Breaking
+
+- `BastionHttp.call` (and so every `BastionApiClient`, `BastionService.call`, `ServiceTokenProvider` and `BastionHttpException` call) unwraps a success body whose only key is `data` and returns `data`. A page (`{ data, meta }`), an array, any other object and an empty body are returned unchanged. A Bastion route that answers `{ data }` today (e.g. `GET /auth/me/tenants`) now gives you the inner value: read it as `Array.isArray(res) ? res : res.data` if you call such a route through `call`.
+- `listMyEvents` returns `{ data, meta: { total, page, limit, totalPages } }` (new type `BastionPageMeta`). An older Bastion's `{ data, total, page, limit }` is converted to this shape.
+- `err.code` is the domain code for `PROVIDER_TAKEN`, `ALREADY_LINKED`, `OAUTH_EMAIL_TAKEN`, `AGE_ALREADY_VERIFIED` (previously `CONFLICT`), `AGE_GATE_NOT_CONFIGURED`, `CURRENT_PASSWORD_REQUIRED`, `TWO_FACTOR_CODE_REQUIRED`, `OAUTH_USER_INACTIVE`, `OAUTH_UNDER_MINIMUM_AGE` (previously `UPSTREAM`), and these codes are no longer on `upstreamCode`.
+
+### Added
+
+- The error codes above in `BastionErrorCode`.
+- Bastion's `code` is used whenever it is a `BastionErrorCode` and `message` is not itself one, so the code survives a reworded `message`. Message-based classification stays as the fallback for a Bastion that sends no domain `code`.
+
 ## 0.9.0
 
 ### Added

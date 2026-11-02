@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BastionApiClient, BastionHttp, BastionHttpError } from '../src/core/index.js';
+import { BastionApiClient, BastionHttp, BastionHttpError, ServiceTokenProvider } from '../src/core/index.js';
+import { makeIssuer, serviceClaims } from './helpers.js';
 
 function fakeHttp(answers: (path: string, init: RequestInit) => { status: number; body?: unknown }) {
   const calls: { path: string; init: RequestInit }[] = [];
@@ -18,7 +19,7 @@ describe('BastionApiClient', () => {
       path.startsWith('/auth/me/events') ? { status: 200, body: { data: [], total: 0, page: 2, limit: 5 } } : { status: 200, body: { id: 'u', email: 'a@b.c', username: 'a', image: null, preferredLocale: 'it', emailVerified: true } },
     );
     const api = new BastionApiClient({ http, appSlug: 'x' });
-    await expect(api.listMyEvents('t', { page: 2, limit: 5 })).resolves.toMatchObject({ page: 2 });
+    await expect(api.listMyEvents('t', { page: 2, limit: 5 })).resolves.toMatchObject({ meta: { page: 2 } });
     expect(calls[0].path).toBe('/auth/me/events?page=2&limit=5');
     await expect(api.updateProfile('t', { username: 'a' })).resolves.toMatchObject({ emailVerified: true });
   });
@@ -184,5 +185,68 @@ describe('BastionHttp — 0.8.0', () => {
     await http.call('GET', '/a');
     expect(calls.map((c) => (c.headers as Record<string, string>)['X-Request-Id'])).toEqual(['req-1', undefined, undefined]);
     expect((calls[1].headers as Record<string, string>)['x-request-id']).toBe('mine');
+  });
+});
+
+describe('BastionHttp — 1.0.0, both response shapes', () => {
+  const profile = { id: 'u', email: 'a@b.c', username: 'a', image: null, preferredLocale: 'it', emailVerified: true };
+
+  it('unwraps a body whose only key is data, and passes every other shape through', async () => {
+    const answer = async (body: unknown) => fakeHttp(() => ({ status: 200, body })).http.call('GET', '/x');
+    await expect(answer(profile)).resolves.toEqual(profile);
+    await expect(answer({ data: profile })).resolves.toEqual(profile);
+    await expect(answer([1, 2])).resolves.toEqual([1, 2]);
+    await expect(answer({ data: [1, 2] })).resolves.toEqual([1, 2]);
+    const page = { data: [1], meta: { total: 1, page: 1, limit: 20, totalPages: 1 } };
+    await expect(answer(page)).resolves.toEqual(page);
+    // Bastion before 2.0 pages without `meta`: two keys, not an envelope.
+    await expect(answer({ data: [1], total: 1 })).resolves.toEqual({ data: [1], total: 1 });
+    await expect(answer({ data: null })).resolves.toBeNull();
+    await expect(answer(undefined)).resolves.toBeUndefined();
+    await expect(fakeHttp(() => ({ status: 204 })).http.call('DELETE', '/x')).resolves.toBeUndefined();
+  });
+
+  it('gives the API client the same result from a bare and an enveloped answer', async () => {
+    const pair = { accessToken: 'a', refreshToken: 'r' };
+    for (const wrap of [(b: unknown) => b, (b: unknown) => ({ data: b })]) {
+      const { http } = fakeHttp((path) => ({ status: 200, body: wrap(path === '/auth/login' ? pair : profile) }));
+      const api = new BastionApiClient({ http, appSlug: 'x' });
+      await expect(api.login('a@b.c', 'pw')).resolves.toMatchObject(pair);
+      await expect(api.updateProfile('t', { username: 'a' })).resolves.toEqual(profile);
+    }
+  });
+
+  it('reads the service token from an enveloped /auth/client answer', async () => {
+    const issuer = await makeIssuer();
+    const token = await issuer.sign(serviceClaims, { exp: '1h' });
+    const { http } = fakeHttp(() => ({ status: 201, body: { data: { accessToken: token, expiresIn: 3600 } } }));
+    const provider = new ServiceTokenProvider(http, { apiKey: 'k', serviceSlug: 'herald' });
+    await expect(provider.getToken()).resolves.toBe(token);
+  });
+
+  it('pages the audit trail as { data, meta } from both Bastion shapes', async () => {
+    const event = { id: 'e', tenantId: 't', userId: 'u', appSlug: 'x', event: 'auth.login', source: 'BASTION', metadata: {}, createdAt: 'now' };
+    const legacy = fakeHttp(() => ({ status: 200, body: { data: [event], total: 41, page: 2, limit: 20 } }));
+    const current = fakeHttp(() => ({ status: 200, body: { data: [event], meta: { total: 41, page: 2, limit: 20, totalPages: 3 } } }));
+    const expected = { data: [event], meta: { total: 41, page: 2, limit: 20, totalPages: 3 } };
+    await expect(new BastionApiClient({ http: legacy.http, appSlug: 'x' }).listMyEvents('t')).resolves.toEqual(expected);
+    await expect(new BastionApiClient({ http: current.http, appSlug: 'x' }).listMyEvents('t')).resolves.toEqual(expected);
+    const empty = fakeHttp(() => ({ status: 200, body: { data: [], total: 0, page: 1, limit: 0 } }));
+    await expect(new BastionApiClient({ http: empty.http, appSlug: 'x' }).listMyEvents('t')).resolves.toMatchObject({ meta: { totalPages: 0 } });
+  });
+
+  it("takes Bastion's code over the message, falling back to the message for an older Bastion", async () => {
+    const fail = (status: number, body: unknown) => fakeHttp(() => ({ status, body })).http.call('POST', '/x');
+    // Bastion >= 1.11: the code is in `code`, the message unchanged.
+    await expect(fail(401, { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS', upstreamCode: undefined });
+    await expect(fail(409, { code: 'PROVIDER_TAKEN', message: 'PROVIDER_TAKEN' })).rejects.toMatchObject({ code: 'PROVIDER_TAKEN', upstreamCode: undefined });
+    await expect(fail(400, { code: 'CURRENT_PASSWORD_REQUIRED', message: 'CURRENT_PASSWORD_REQUIRED' })).rejects.toMatchObject({ code: 'CURRENT_PASSWORD_REQUIRED' });
+    // A cleaned-up message (Bastion 2.1) still classifies through its code.
+    await expect(fail(403, { code: 'OAUTH_EMAIL_UNVERIFIED', message: 'Verify your email first' })).rejects.toMatchObject({ code: 'OAUTH_EMAIL_UNVERIFIED', message: 'Verify your email first' });
+    // Older Bastion: the code only in the message, the generic status code in `code`.
+    await expect(fail(409, { code: 'CONFLICT', message: 'ALREADY_LINKED' })).rejects.toMatchObject({ code: 'ALREADY_LINKED' });
+    await expect(fail(400, { code: 'BAD_REQUEST', message: 'TWO_FACTOR_CODE_REQUIRED' })).rejects.toMatchObject({ code: 'TWO_FACTOR_CODE_REQUIRED' });
+    // A domain code outside the enum stays on upstreamCode.
+    await expect(fail(409, { code: 'HAS_SOCIAL_ACCOUNTS', message: 'User has social accounts' })).rejects.toMatchObject({ code: 'CONFLICT', upstreamCode: 'HAS_SOCIAL_ACCOUNTS' });
   });
 });

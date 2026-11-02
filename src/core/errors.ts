@@ -19,9 +19,9 @@ export class BastionTokenError extends Error {
 
 /**
  * Stable classification of a Bastion error answer, so an app can branch on a
- * code instead of on Bastion's message text. The age-gate codes are Bastion's
- * own (it returns them verbatim); the rest are derived from status + message
- * until Bastion carries a `code` field on every error.
+ * code instead of on Bastion's message text. Bastion's own `code` is used when
+ * it is one of these; for an older Bastion that sends none, the code is derived
+ * from status + message (`classifyBastionError`).
  */
 export const BastionErrorCode = {
   EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
@@ -49,6 +49,20 @@ export const BastionErrorCode = {
   OAUTH_NO_ACCOUNT: 'OAUTH_NO_ACCOUNT',
   /** `completeSocialAccountLink` called with a token that is not the link ticket's owner. The code is spent; start the link again. */
   OAUTH_LINK_USER_MISMATCH: 'OAUTH_LINK_USER_MISMATCH',
+  /** OAuth signup with an email that a verified account of the tenant already owns. */
+  OAUTH_EMAIL_TAKEN: 'OAUTH_EMAIL_TAKEN',
+  OAUTH_USER_INACTIVE: 'OAUTH_USER_INACTIVE',
+  OAUTH_UNDER_MINIMUM_AGE: 'OAUTH_UNDER_MINIMUM_AGE',
+  /** Linking a provider account that belongs to another user. */
+  PROVIDER_TAKEN: 'PROVIDER_TAKEN',
+  /** The user already has an account of this provider linked. */
+  ALREADY_LINKED: 'ALREADY_LINKED',
+  AGE_ALREADY_VERIFIED: 'AGE_ALREADY_VERIFIED',
+  AGE_GATE_NOT_CONFIGURED: 'AGE_GATE_NOT_CONFIGURED',
+  /** A step-up route was called without `currentPassword`. Ask for it; the session is fine. */
+  CURRENT_PASSWORD_REQUIRED: 'CURRENT_PASSWORD_REQUIRED',
+  /** A step-up route was called without `twoFactorCode`. Ask for it; the session is fine. */
+  TWO_FACTOR_CODE_REQUIRED: 'TWO_FACTOR_CODE_REQUIRED',
   UNAVAILABLE: 'UNAVAILABLE',
   UPSTREAM: 'UPSTREAM',
 } as const;
@@ -64,6 +78,15 @@ const CODE_MESSAGES: ReadonlySet<string> = new Set([
   BastionErrorCode.OAUTH_EMAIL_REQUIRED,
   BastionErrorCode.OAUTH_NO_ACCOUNT,
   BastionErrorCode.OAUTH_LINK_USER_MISMATCH,
+  BastionErrorCode.OAUTH_EMAIL_TAKEN,
+  BastionErrorCode.OAUTH_USER_INACTIVE,
+  BastionErrorCode.OAUTH_UNDER_MINIMUM_AGE,
+  BastionErrorCode.PROVIDER_TAKEN,
+  BastionErrorCode.ALREADY_LINKED,
+  BastionErrorCode.AGE_ALREADY_VERIFIED,
+  BastionErrorCode.AGE_GATE_NOT_CONFIGURED,
+  BastionErrorCode.CURRENT_PASSWORD_REQUIRED,
+  BastionErrorCode.TWO_FACTOR_CODE_REQUIRED,
 ]);
 
 const APP_CONTEXT_RE = /app not found|tenant not found|tenant is inactive|no tenants configured|tenantslug is required/i;

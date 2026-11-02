@@ -52,6 +52,14 @@ resta solo devDependency per firmare i token nei test.
 ### `BastionHttp`
 
 - `call(method, path, body?, init?)`: timeout (default 8 s), `Authorization` da `init.token`.
+- Successo → `unwrapData`: un oggetto con la sola chiave `data` restituisce `data`; pagina
+  `{ data, meta }`, array, altri oggetti e body vuoto passano invariati. È la tolleranza verso
+  l'envelope di Bastion 2.0 (piano di piattaforma 03, W1): un unico punto, quindi copre
+  `BastionApiClient`, `BastionService.call`, `ServiceTokenProvider` e `NestBastionHttp`. Rischio
+  noto: una rotta che già oggi risponde `{ data }` da sola (`GET /auth/me/tenants`,
+  `GET /admin/apps/:slug/permissions`) arriva scartata; chi la chiama via `call` legge
+  `Array.isArray(res) ? res : res.data`. `listMyEvents` normalizza `{ data, total, page, limit }`
+  (Bastion < 2.0) in `{ data, meta }`.
 - `X-Request-Id`: preso dal getter `requestId` a ogni chiamata, inviato solo se rispetta
   `/^[A-Za-z0-9._-]{1,64}$/` (api.md §7) e se il chiamante non l'ha già messo (confronto
   case-insensitive).
@@ -59,13 +67,18 @@ resta solo devDependency per firmare i token nei test.
   - Bastion irraggiungibile o in timeout: 503 `UNAVAILABLE`;
   - body nel formato api.md §3 `{ code, message, errors? }`; le build vecchie di Bastion mettono
     gli errori di validazione in `message: string[]`, gestito uguale (messaggio = join);
-  - `code` del body tenuto se è un `BastionErrorCode`, altrimenti finisce in `upstreamCode` e il
-    codice si deriva con `classifyBastionError(status, message)`;
-  - un codice ancora trasportato in `message` (`{ code: 'FORBIDDEN', message: 'UNDER_MINIMUM_AGE' }`)
-    vince sul `code` generico del body;
+  - un codice trasportato in `message` vince sul `code` del body: un Bastion vecchio lo manda
+    sotto un `code` generico che è anch'esso un `BastionErrorCode` (`{ code: 'CONFLICT',
+    message: 'ALREADY_LINKED' }`), e "il `code` vince sempre" lo perderebbe;
+  - altrimenti `code` del body tenuto se è un `BastionErrorCode` (da Bastion 1.11 i codici di
+    login/refresh/exchange/contesto app ci sono tutti), così sopravvive a un `message` riscritto;
+    se non lo è finisce in `upstreamCode` e il codice si deriva con
+    `classifyBastionError(status, message)`;
   - 400 con `errors` → `VALIDATION_FAILED`.
-- `classifyBastionError` esiste perché Bastion non ha ancora un `code` di dominio su ogni errore:
-  le regex su `message` vanno tolte quando ce l'avrà. Il fallback è `UPSTREAM`.
+- `classifyBastionError` resta come fallback per un Bastion senza `code` di dominio (< 1.11) e per
+  i pochi errori ancora senza codice (`'App has no tenants configured'`, `'Client is inactive'`,
+  `'User not found'`): le regex su `message` si tolgono nella 1.1.0, dopo il cutover. Il fallback
+  finale è `UPSTREAM`.
 
 ### `BastionApiClient`
 

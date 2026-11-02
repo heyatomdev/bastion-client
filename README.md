@@ -147,6 +147,11 @@ export class AuthController {
   from one browser must collapse into one call. Use one client instance per process.
 - `logout` revokes the latest token in the rotation chain and never throws.
 
+## Responses
+
+Calls return Bastion's body. A body whose only key is `data` is unwrapped, so the same code reads
+Bastion with and without the `{ data }` envelope; pages keep their `{ data, meta }` shape.
+
 ## Errors
 
 Every failed call throws `BastionHttpError` (core) or `BastionHttpException` (Nest) with a stable
@@ -155,9 +160,11 @@ Every failed call throws `BastionHttpError` (core) or `BastionHttpException` (Ne
 `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `NO_APP_ACCESS`, `ACCOUNT_INACTIVE`,
 `INVALID_APP_CONTEXT` (your configuration, not the user), `INVALID_REFRESH_TOKEN`,
 `INVALID_OAUTH_CODE`, `VALIDATION_FAILED`, `STEP_UP_FAILED` (wrong current password or 2FA
-code on a step-up route: the session is fine), `CONFLICT`, `RATE_LIMITED`, the age-gate codes
-(`BIRTH_DATE_REQUIRED`, `BIRTH_DATE_INVALID`, `UNDER_MINIMUM_AGE`), the OAuth flow codes
-(`OAUTH_*`), `UNAVAILABLE` (Bastion unreachable or timed out) and `UPSTREAM`.
+code on a step-up route: the session is fine), `CURRENT_PASSWORD_REQUIRED` and
+`TWO_FACTOR_CODE_REQUIRED` (a step-up field is missing: ask for it), `CONFLICT`,
+`PROVIDER_TAKEN`, `ALREADY_LINKED`, `RATE_LIMITED`, the age-gate codes (`BIRTH_DATE_REQUIRED`,
+`BIRTH_DATE_INVALID`, `UNDER_MINIMUM_AGE`, `AGE_ALREADY_VERIFIED`, `AGE_GATE_NOT_CONFIGURED`),
+the OAuth codes (`OAUTH_*`), `UNAVAILABLE` (Bastion unreachable or timed out) and `UPSTREAM`.
 
 - A 400 carries the field errors in `errors: string[]`. Show them: `message` is only
   "Validation failed".

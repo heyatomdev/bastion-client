@@ -19,8 +19,12 @@ import type {
   BastionTwoFactorConfirmed,
   BastionTwoFactorSetup,
   BastionTwoFactorStatus,
+  BastionUserAuditEvent,
   BastionUserAuditEventsPage,
 } from './api-types.js';
+
+/** `GET /auth/me/events` before Bastion 2.0. */
+type LegacyEventsPage = { data: BastionUserAuditEvent[]; total: number; page: number; limit: number };
 
 const DEFAULT_REFRESH_MEMORY_MS = 60_000;
 const AUTH_METHODS_CACHE_MS = 5 * 60_000;
@@ -311,12 +315,21 @@ export class BastionApiClient {
   // ── GDPR ─────────────────────────────────────────────────────────────────
 
   /** The user's own audit trail (`GET /auth/me/events`), paginated. */
-  listMyEvents(accessToken: string, page: { page?: number; limit?: number } = {}): Promise<BastionUserAuditEventsPage> {
+  async listMyEvents(accessToken: string, page: { page?: number; limit?: number } = {}): Promise<BastionUserAuditEventsPage> {
     const params = new URLSearchParams();
     if (page.page !== undefined) params.set('page', String(page.page));
     if (page.limit !== undefined) params.set('limit', String(page.limit));
     const qs = params.toString();
-    return this.call('GET', `/auth/me/events${qs ? `?${qs}` : ''}`, undefined, { token: accessToken });
+    const res = await this.call<BastionUserAuditEventsPage | LegacyEventsPage>(
+      'GET',
+      `/auth/me/events${qs ? `?${qs}` : ''}`,
+      undefined,
+      { token: accessToken },
+    );
+    if ('meta' in res) return res;
+    // Bastion before 2.0: the page fields sit next to `data`.
+    const { data, total, page: current, limit } = res;
+    return { data, meta: { total, page: current, limit, totalPages: limit > 0 ? Math.ceil(total / limit) : 0 } };
   }
 
   exportData(accessToken: string): Promise<Record<string, unknown>> {
