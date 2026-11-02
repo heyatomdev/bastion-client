@@ -6,9 +6,9 @@ Reads both the current Bastion answers and the `{ data }` envelope Bastion 2.0 w
 
 ### Breaking
 
-- `BastionHttp.call` (and so every `BastionApiClient`, `BastionService.call`, `ServiceTokenProvider` and `BastionHttpException` call) unwraps a success body whose only key is `data` and returns `data`. A page (`{ data, meta }`), an array, any other object and an empty body are returned unchanged. A Bastion route that answers `{ data }` today (e.g. `GET /auth/me/tenants`) now gives you the inner value: read it as `Array.isArray(res) ? res : res.data` if you call such a route through `call`.
+- `BastionHttp.call` (and so every `BastionApiClient`, `BastionService.call`, `ServiceTokenProvider` and `BastionHttpException` call) unwraps a success body whose only key is `data` and returns `data`. A page (`{ data, meta }`), an array, any other object and an empty body are returned unchanged. Three Bastion routes answer `{ data }` alone today (`GET /auth/me/tenants`, `GET /admin/apps/:slug/permissions`, `PUT /admin/apps/:slug/roles/:roleId/permissions`): through `call` they now give you the inner array. Read them as `Array.isArray(res) ? res : res.data`, which also works with any later Bastion.
 - `listMyEvents` returns `{ data, meta: { total, page, limit, totalPages } }` (new type `BastionPageMeta`). An older Bastion's `{ data, total, page, limit }` is converted to this shape.
-- `err.code` is the domain code for `PROVIDER_TAKEN`, `ALREADY_LINKED`, `OAUTH_EMAIL_TAKEN`, `AGE_ALREADY_VERIFIED` (previously `CONFLICT`), `AGE_GATE_NOT_CONFIGURED`, `CURRENT_PASSWORD_REQUIRED`, `TWO_FACTOR_CODE_REQUIRED`, `OAUTH_USER_INACTIVE`, `OAUTH_UNDER_MINIMUM_AGE` (previously `UPSTREAM`), and these codes are no longer on `upstreamCode`.
+- `err.code` is the domain code for `PROVIDER_TAKEN`, `ALREADY_LINKED`, `OAUTH_EMAIL_TAKEN`, `AGE_ALREADY_VERIFIED` (previously `CONFLICT`), `AGE_GATE_NOT_CONFIGURED`, `CURRENT_PASSWORD_REQUIRED`, `TWO_FACTOR_CODE_REQUIRED`, `OAUTH_USER_INACTIVE`, `OAUTH_UNDER_MINIMUM_AGE` (previously `UPSTREAM`). `BastionHttpException` forwards that code to your client instead of `CONFLICT` / `BAD_REQUEST` / `FORBIDDEN`. When Bastion sends these codes in `code`, `upstreamCode` is no longer set for them.
 
 ### Added
 

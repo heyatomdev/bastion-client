@@ -56,9 +56,11 @@ resta solo devDependency per firmare i token nei test.
   `{ data, meta }`, array, altri oggetti e body vuoto passano invariati. È la tolleranza verso
   l'envelope di Bastion 2.0 (piano di piattaforma 03, W1): un unico punto, quindi copre
   `BastionApiClient`, `BastionService.call`, `ServiceTokenProvider` e `NestBastionHttp`. Rischio
-  noto: una rotta che già oggi risponde `{ data }` da sola (`GET /auth/me/tenants`,
-  `GET /admin/apps/:slug/permissions`) arriva scartata; chi la chiama via `call` legge
-  `Array.isArray(res) ? res : res.data`. `listMyEvents` normalizza `{ data, total, page, limit }`
+  noto: tre rotte rispondono già oggi `{ data }` da sole (`GET /auth/me/tenants`,
+  `GET` e `PUT` dei permessi in `/admin/apps/:slug/…`) e arrivano scartate; con Bastion 2.0, se
+  W3 non le porta all'array nudo, l'interceptor le incarta di nuovo e il client restituisce
+  `{ data }`. Chi le chiama via `call` legge `Array.isArray(res) ? res : res.data`, che regge in
+  entrambi i casi. `listMyEvents` normalizza `{ data, total, page, limit }`
   (Bastion < 2.0) in `{ data, meta }`.
 - `X-Request-Id`: preso dal getter `requestId` a ogni chiamata, inviato solo se rispetta
   `/^[A-Za-z0-9._-]{1,64}$/` (api.md §7) e se il chiamante non l'ha già messo (confronto

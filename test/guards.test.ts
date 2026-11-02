@@ -160,6 +160,14 @@ describe('BastionModule request id wiring', () => {
   });
 });
 
+describe('BastionHttpException — 1.0.0 domain codes', () => {
+  it('forwards a domain code that an older Bastion sends only in the message', () => {
+    // `{ code: 'FORBIDDEN', message: 'OAUTH_USER_INACTIVE' }` from Bastion < 1.11: 0.9.x forwarded FORBIDDEN.
+    const e = BastionHttpException.from(new BastionHttpError(403, 'OAUTH_USER_INACTIVE', undefined, undefined, 'FORBIDDEN'));
+    expect(e.getResponse()).toMatchObject({ code: 'OAUTH_USER_INACTIVE', message: 'OAUTH_USER_INACTIVE' });
+  });
+});
+
 describe('BastionHttpException — codes', () => {
   it('omits an empty errors array; an unclassified 4xx keeps Bastion code or the status default', () => {
     expect(BastionHttpException.from(new BastionHttpError(400, 'Bad', 'VALIDATION_FAILED', [])).getResponse()).toEqual({ code: 'VALIDATION_FAILED', message: 'Bad' });

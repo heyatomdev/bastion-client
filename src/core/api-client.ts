@@ -326,7 +326,8 @@ export class BastionApiClient {
       undefined,
       { token: accessToken },
     );
-    if ('meta' in res) return res;
+    // No body (a proxy in between): nothing to normalise, same as every other method.
+    if (!res || typeof res !== 'object' || 'meta' in res) return res;
     // Bastion before 2.0: the page fields sit next to `data`.
     const { data, total, page: current, limit } = res;
     return { data, meta: { total, page: current, limit, totalPages: limit > 0 ? Math.ceil(total / limit) : 0 } };

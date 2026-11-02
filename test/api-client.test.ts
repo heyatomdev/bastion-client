@@ -203,6 +203,8 @@ describe('BastionHttp — 1.0.0, both response shapes', () => {
     await expect(answer({ data: [1], total: 1 })).resolves.toEqual({ data: [1], total: 1 });
     await expect(answer({ data: null })).resolves.toBeNull();
     await expect(answer(undefined)).resolves.toBeUndefined();
+    // A route that already answers `{ data }` alone and gets enveloped again: one level comes off.
+    await expect(answer({ data: { data: [1] } })).resolves.toEqual({ data: [1] });
     await expect(fakeHttp(() => ({ status: 204 })).http.call('DELETE', '/x')).resolves.toBeUndefined();
   });
 
@@ -233,6 +235,8 @@ describe('BastionHttp — 1.0.0, both response shapes', () => {
     await expect(new BastionApiClient({ http: current.http, appSlug: 'x' }).listMyEvents('t')).resolves.toEqual(expected);
     const empty = fakeHttp(() => ({ status: 200, body: { data: [], total: 0, page: 1, limit: 0 } }));
     await expect(new BastionApiClient({ http: empty.http, appSlug: 'x' }).listMyEvents('t')).resolves.toMatchObject({ meta: { totalPages: 0 } });
+    const none = fakeHttp(() => ({ status: 200 }));
+    await expect(new BastionApiClient({ http: none.http, appSlug: 'x' }).listMyEvents('t')).resolves.toBeUndefined();
   });
 
   it("takes Bastion's code over the message, falling back to the message for an older Bastion", async () => {
@@ -246,6 +250,8 @@ describe('BastionHttp — 1.0.0, both response shapes', () => {
     // Older Bastion: the code only in the message, the generic status code in `code`.
     await expect(fail(409, { code: 'CONFLICT', message: 'ALREADY_LINKED' })).rejects.toMatchObject({ code: 'ALREADY_LINKED' });
     await expect(fail(400, { code: 'BAD_REQUEST', message: 'TWO_FACTOR_CODE_REQUIRED' })).rejects.toMatchObject({ code: 'TWO_FACTOR_CODE_REQUIRED' });
+    // Two different codes (not sent by Bastion): the message wins, as the rule says.
+    await expect(fail(401, { code: 'STEP_UP_FAILED', message: 'INVALID_CREDENTIALS' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     // A domain code outside the enum stays on upstreamCode.
     await expect(fail(409, { code: 'HAS_SOCIAL_ACCOUNTS', message: 'User has social accounts' })).rejects.toMatchObject({ code: 'CONFLICT', upstreamCode: 'HAS_SOCIAL_ACCOUNTS' });
   });
