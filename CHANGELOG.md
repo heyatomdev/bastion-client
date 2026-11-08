@@ -5,6 +5,7 @@
 ### Added
 
 - `BastionWebhookEvent`: discriminated union of every webhook event Bastion sends, with its extra fields (`newEmail`, `oldRole`/`newRole`, `initiator`, …). `switch (payload.event)` narrows them. `BastionWebhookEventName` is the union of event names. `BastionWebhookPayload` stays as the loose shape.
+- `oauthStart(provider, { locale })`: sends `locale` (ISO 639-1, lowercase) on the initiate URL, the preferred locale of an account that login creates. Bastion versions without `?locale=` ignore it.
 
 ## 2.0.0
 

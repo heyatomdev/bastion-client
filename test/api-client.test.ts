@@ -58,6 +58,9 @@ describe('BastionApiClient', () => {
     expect(new URL(a!.url).searchParams.get('state')).toBe(a!.state);
     expect(new URL(a!.url).searchParams.get('appSlug')).toBe('x');
     await expect(api.oauthStart('google')).resolves.toBeNull();
+    expect(new URL(a!.url).searchParams.has('locale')).toBe(false);
+    const en = await api.oauthStart('twitch', { locale: 'en' });
+    expect(new URL(en!.url).searchParams.get('locale')).toBe('en');
   });
 
   it('single-flights concurrent refreshes and logs out the rotated successor', async () => {

@@ -96,7 +96,8 @@ Lato utente dell'API di Bastion, per un backend che fa da BFF. Stato in memoria 
 - `getAuthMethods` in cache 5 min, stale-on-error.
 - `oauthStart(provider)`: `state` da 32 byte casuali (base64url, 43 caratteri) sull'URL di
   initiate. `exchange` richiede `state` (vuoto → reject prima della chiamata): Bastion rifiuta un
-  codice emesso sotto un altro `state`, ed è questo che blocca il login CSRF.
+  codice emesso sotto un altro `state`, ed è questo che blocca il login CSRF. `options.locale`
+  finisce come `?locale=` senza validazione locale: il formato lo controlla Bastion (400).
 
 ### `ServiceTokenProvider`
 

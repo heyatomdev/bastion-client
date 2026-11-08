@@ -115,13 +115,17 @@ export class BastionApiClient {
    * `state` on it, or `null` for a provider the app doesn't offer. Keep `state`
    * in an httpOnly `SameSite=Lax` cookie scoped to the callback path, redirect
    * the browser to `url`, then pass the cookie's value to `exchange`.
+   * `options.locale` (ISO 639-1, lowercase, e.g. `en`) becomes the preferred
+   * locale of an account this login creates, and the language of its
+   * verification mail; existing accounts keep theirs.
    */
-  async oauthStart(provider: string): Promise<{ url: string; state: string } | null> {
+  async oauthStart(provider: string, options: { locale?: string } = {}): Promise<{ url: string; state: string } | null> {
     const method = (await this.getAuthMethods()).oauth.find((m) => m.provider === provider);
     if (!method) return null;
     const state = randomBytes(32).toString('base64url');
     const url = new URL(method.authorizeUrl);
     url.searchParams.set('state', state);
+    if (options.locale) url.searchParams.set('locale', options.locale);
     return { url: url.toString(), state };
   }
 

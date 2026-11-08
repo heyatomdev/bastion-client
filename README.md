@@ -142,6 +142,8 @@ export class AuthController {
 ```
 
 - `exchange` requires the `state` returned by `oauthStart`: it is what stops login CSRF.
+- `oauthStart(provider, { locale: 'en' })` gives an account created by that login its preferred
+  locale, and its verification mail that language. Existing accounts keep theirs.
 - `refresh` is single-flight per token and remembers each answer for `refreshMemoryMs` (60 s):
   Bastion rotates refresh tokens and revokes the whole family on reuse, so concurrent refreshes
   from one browser must collapse into one call. Use one client instance per process.
