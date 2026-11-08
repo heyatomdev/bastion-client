@@ -174,8 +174,13 @@ describe('BastionHttp — 0.8.0', () => {
     // New domain codes win over the message regexes ('inactive' would read ACCOUNT_INACTIVE).
     const inactive = fakeHttp(() => ({ status: 401, body: { code: 'CLIENT_INACTIVE', message: 'Client is inactive' } }));
     await expect(inactive.http.call('POST', '/auth/client')).rejects.toMatchObject({ code: 'CLIENT_INACTIVE', upstreamCode: undefined });
-    const noUser = fakeHttp(() => ({ status: 404, body: { code: 'USER_NOT_FOUND', message: 'User not found' } }));
+    const noUser = fakeHttp(() => ({ status: 401, body: { code: 'USER_NOT_FOUND', message: 'User not found' } }));
     await expect(noUser.http.call('GET', '/x')).rejects.toMatchObject({ code: 'USER_NOT_FOUND', upstreamCode: undefined });
+    // Older Bastion (no code): 401 reads INVALID_CREDENTIALS from the text; a plain 404 stays UPSTREAM.
+    const oldNoUser = fakeHttp(() => ({ status: 401, body: { message: 'User not found' } }));
+    await expect(oldNoUser.http.call('GET', '/x')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    const plain404 = fakeHttp(() => ({ status: 404, body: { message: 'User not found' } }));
+    await expect(plain404.http.call('GET', '/x')).rejects.toMatchObject({ code: 'UPSTREAM' });
 
     const coded = fakeHttp(() => ({ status: 409, body: { code: 'CONFLICT', message: 'Email taken' } }));
     await expect(coded.http.call('POST', '/x')).rejects.toMatchObject({ code: 'CONFLICT', errors: undefined });
