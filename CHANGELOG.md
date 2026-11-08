@@ -7,6 +7,7 @@
 - `verifyWebhookSignature` verifies only [Standard Webhooks](https://www.standardwebhooks.com/) headers. `X-Bastion-Signature-V2` and the legacy `X-Bastion-Signature` are no longer read: a delivery without `webhook-id` / `webhook-timestamp` / `webhook-signature` is `{ ok: false, reason: 'missing' }`. Requires Bastion >= 1.8.0 (the first to send Standard Webhooks headers); Bastion's next release drops the V2 header.
 - Removed `allowLegacySignature`, `BASTION_SIGNATURE_HEADER`, `BASTION_SIGNATURE_V2_HEADER`; `VerifyWebhookResult` is now `{ ok: true; version: 'standard'; … }` or a failure.
 - Classification change, like 1.0.0: `TWO_FACTOR_CODE_INVALID` and `TWO_FACTOR_CHALLENGE_EXPIRED` are sent only by a Bastion release that includes them (not yet released). Until then a wrong 2FA code (`'Invalid code'`) is classified `INVALID_CREDENTIALS`; once Bastion ships them, `err.code` becomes the new codes.
+- Same for `CLIENT_INACTIVE` and `USER_NOT_FOUND`: against a Bastion that sends these codes, a 401 `'Client is inactive'` moves from `ACCOUNT_INACTIVE` to `CLIENT_INACTIVE`, and a 401 `'User not found'` moves from `INVALID_CREDENTIALS` to `USER_NOT_FOUND`. An older Bastion keeps the old text-derived classification.
 
 ### Added
 
