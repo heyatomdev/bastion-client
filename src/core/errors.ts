@@ -67,6 +67,9 @@ export const BastionErrorCode = {
   TWO_FACTOR_CODE_INVALID: 'TWO_FACTOR_CODE_INVALID',
   /** `POST /auth/2fa/authenticate`: the challenge token expired. Start the login again. */
   TWO_FACTOR_CHALLENGE_EXPIRED: 'TWO_FACTOR_CHALLENGE_EXPIRED',
+  /** The service client (API key) is inactive. A configuration error, never the user's. */
+  CLIENT_INACTIVE: 'CLIENT_INACTIVE',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
   UNAVAILABLE: 'UNAVAILABLE',
   UPSTREAM: 'UPSTREAM',
 } as const;

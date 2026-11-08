@@ -171,6 +171,12 @@ describe('BastionHttp — 0.8.0', () => {
     const expired = fakeHttp(() => ({ status: 401, body: { code: 'TWO_FACTOR_CHALLENGE_EXPIRED', message: 'Challenge expired' } }));
     await expect(expired.http.call('POST', '/auth/2fa/authenticate')).rejects.toMatchObject({ code: 'TWO_FACTOR_CHALLENGE_EXPIRED' });
 
+    // New domain codes win over the message regexes ('inactive' would read ACCOUNT_INACTIVE).
+    const inactive = fakeHttp(() => ({ status: 401, body: { code: 'CLIENT_INACTIVE', message: 'Client is inactive' } }));
+    await expect(inactive.http.call('POST', '/auth/client')).rejects.toMatchObject({ code: 'CLIENT_INACTIVE', upstreamCode: undefined });
+    const noUser = fakeHttp(() => ({ status: 404, body: { code: 'USER_NOT_FOUND', message: 'User not found' } }));
+    await expect(noUser.http.call('GET', '/x')).rejects.toMatchObject({ code: 'USER_NOT_FOUND', upstreamCode: undefined });
+
     const coded = fakeHttp(() => ({ status: 409, body: { code: 'CONFLICT', message: 'Email taken' } }));
     await expect(coded.http.call('POST', '/x')).rejects.toMatchObject({ code: 'CONFLICT', errors: undefined });
 

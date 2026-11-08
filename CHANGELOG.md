@@ -1,16 +1,17 @@
 # Changelog
 
-## 1.1.0
+## 2.0.0
 
 ### Breaking
 
-- `verifyWebhookSignature` verifies only [Standard Webhooks](https://www.standardwebhooks.com/) headers. `X-Bastion-Signature-V2` and the legacy `X-Bastion-Signature` are no longer read (Bastion no longer sends them): a delivery without `webhook-id` / `webhook-timestamp` / `webhook-signature` is `{ ok: false, reason: 'missing' }`. Upgrade only once your Bastion sends Standard Webhooks.
+- `verifyWebhookSignature` verifies only [Standard Webhooks](https://www.standardwebhooks.com/) headers. `X-Bastion-Signature-V2` and the legacy `X-Bastion-Signature` are no longer read: a delivery without `webhook-id` / `webhook-timestamp` / `webhook-signature` is `{ ok: false, reason: 'missing' }`. Requires Bastion >= 1.8.0 (the first to send Standard Webhooks headers); Bastion's next release drops the V2 header.
 - Removed `allowLegacySignature`, `BASTION_SIGNATURE_HEADER`, `BASTION_SIGNATURE_V2_HEADER`; `VerifyWebhookResult` is now `{ ok: true; version: 'standard'; … }` or a failure.
+- Classification change, like 1.0.0: `TWO_FACTOR_CODE_INVALID` and `TWO_FACTOR_CHALLENGE_EXPIRED` are sent only by a Bastion release that includes them (not yet released). Until then a wrong 2FA code (`'Invalid code'`) is classified `INVALID_CREDENTIALS`; once Bastion ships them, `err.code` becomes the new codes.
 
 ### Added
 
 - `BastionHttpError.factor` and `BastionHttpException.factor` (`BastionStepUpFactor`: `'password' | 'second_factor'`): which credential a `STEP_UP_FAILED` refers to, parsed from Bastion's error body. `BastionHttpException` also puts it in the response body.
-- `BastionErrorCode.TWO_FACTOR_CODE_INVALID` and `TWO_FACTOR_CHALLENGE_EXPIRED` (`POST /auth/2fa/authenticate`).
+- `BastionErrorCode.TWO_FACTOR_CODE_INVALID`, `TWO_FACTOR_CHALLENGE_EXPIRED` (`POST /auth/2fa/authenticate`), `CLIENT_INACTIVE` and `USER_NOT_FOUND`. Bastion's `code` wins over message classification.
 
 ## 1.0.0
 
