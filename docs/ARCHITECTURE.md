@@ -78,9 +78,11 @@ resta solo devDependency per firmare i token nei test.
     `classifyBastionError(status, message)`;
   - 400 con `errors` → `VALIDATION_FAILED`.
 - `classifyBastionError` resta come fallback per un Bastion senza `code` di dominio (< 1.11) e per
-  i pochi errori ancora senza codice (`'App has no tenants configured'`, `'Client is inactive'`,
-  `'User not found'`): le regex su `message` si tolgono nella 1.1.0, dopo il cutover. Il fallback
-  finale è `UPSTREAM`.
+  i pochi errori ancora senza codice (`'App has no tenants configured'`): le regex su `message`
+  restano finché esistono Bastion senza `code`. Dalla 2.0.0 `'Client is inactive'` e
+  `'User not found'` hanno `CLIENT_INACTIVE` / `USER_NOT_FOUND`; un Bastion vecchio li manda
+  senza codice e il fallback li legge come `ACCOUNT_INACTIVE` / `INVALID_CREDENTIALS`. Il
+  fallback finale è `UPSTREAM`.
 
 ### `BastionApiClient`
 
