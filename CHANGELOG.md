@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `BastionWebhookEvent`: discriminated union of every webhook event Bastion sends, with its extra fields (`newEmail`, `oldRole`/`newRole`, `initiator`, …). `switch (payload.event)` narrows them. `BastionWebhookEventName` is the union of event names. `BastionWebhookPayload` stays as the loose shape.
+
 ## 2.0.0
 
 ### Breaking

@@ -26,7 +26,7 @@ pnpm add @heyatom/bastion-client
 |---|---|
 | `@heyatom/bastion-client` | Framework-free core: `JwksVerifier`, `BastionHttp`, `ServiceTokenProvider`, `BastionApiClient`, types, error codes |
 | `@heyatom/bastion-client/nest` | `BastionModule`, guards, decorators, audit (re-exports the core) |
-| `@heyatom/bastion-client/webhooks` | `verifyWebhookSignature` |
+| `@heyatom/bastion-client/webhooks` | `verifyWebhookSignature`, `BastionWebhookEvent` |
 
 ## NestJS
 
@@ -228,6 +228,24 @@ const result = verifyWebhookSignature({
 });
 if (!result.ok) throw new UnauthorizedException(result.reason);
 // result.deliveryId: store it and ignore repeats
+```
+
+Type the parsed body as `BastionWebhookEvent`: switching on `event` narrows the extra fields.
+
+```ts
+import type { BastionWebhookEvent } from '@heyatom/bastion-client/webhooks';
+
+const payload = JSON.parse(req.rawBody.toString('utf8')) as BastionWebhookEvent;
+switch (payload.event) {
+  case 'auth.email_changed':
+    await users.updateEmail(payload.userId, payload.newEmail);
+    break;
+  case 'user.role_changed':
+    await users.setRole(payload.userId, payload.newRole);
+    break;
+  default:
+    // a newer Bastion may send events this version does not list
+}
 ```
 
 Checks [Standard Webhooks](https://www.standardwebhooks.com/) headers (`webhook-id`,

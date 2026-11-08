@@ -134,6 +134,8 @@ stale-on-error finché il vecchio è dentro `exp`.
 
 ## Webhook
 
+`BastionWebhookEvent`: union discriminata su `event`, specchio a mano dei `dispatch()` di Bastion e della tabella eventi di `../docs/integrations/bastion.md` (evento nuovo = riga in entrambi). `BASTION_LIFECYCLE_EVENTS` la usa con `satisfies`.
+
 `verifyWebhookSignature`: solo Standard Webhooks (`webhook-id`/`-timestamp`/`-signature`, base64
 HMAC su `id.timestamp.body`, secret UTF-8 come `signStandardWebhook` di nest-common). Rotazione
 del secret (lista di secret accettati, qualsiasi `v1`). Dalla 2.0.0 niente più `X-Bastion-Signature-V2`

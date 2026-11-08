@@ -8,9 +8,50 @@ export const WEBHOOK_ID_HEADER = 'webhook-id';
 export const WEBHOOK_TIMESTAMP_HEADER = 'webhook-timestamp';
 export const WEBHOOK_SIGNATURE_HEADER = 'webhook-signature';
 
-/** Sent to every app with a webhook URL, whether or not the user has a role in it. */
-export const BASTION_LIFECYCLE_EVENTS = ['user.deleted', 'user.expired_unverified', 'user.deactivated'] as const;
+/** Fields every delivery body carries. `id` is the delivery id, equal to the `webhook-id` header. */
+interface BastionWebhookBase<E extends string> {
+  id: string;
+  event: E;
+  tenantSlug: string;
+  userId: string;
+  /** ISO 8601. */
+  timestamp: string;
+}
 
+/**
+ * Every event Bastion sends, discriminated on `event`: `switch (payload.event)` narrows the
+ * extra fields. Parse the verified body as this type and keep a `default` branch, since a newer
+ * Bastion may send events this version does not list.
+ */
+export type BastionWebhookEvent =
+  | (BastionWebhookBase<'user.deleted'> & {
+      /** Only on a deletion by the age gate; absent on an ordinary erasure. */
+      reason?: 'under_minimum_age';
+    })
+  | BastionWebhookBase<'user.deactivated'>
+  | BastionWebhookBase<'user.expired_unverified'>
+  | (BastionWebhookBase<'user.role_changed'> & { appSlug: string; oldRole: string; newRole: string })
+  | (BastionWebhookBase<'auth.email_verified'> & { email: string })
+  | (BastionWebhookBase<'auth.email_changed'> & { newEmail: string })
+  | (BastionWebhookBase<'auth.oauth_linked'> & {
+      /** Lowercase: `discord`, `google`, `twitch`, … */
+      provider: string;
+      avatarUrl: string | null;
+    })
+  | (BastionWebhookBase<'auth.oauth_unlinked'> & { provider: string })
+  | BastionWebhookBase<'auth.2fa_enabled'>
+  | (BastionWebhookBase<'auth.2fa_disabled'> & { initiator: 'self' | 'admin' });
+
+export type BastionWebhookEventName = BastionWebhookEvent['event'];
+
+/** Sent to every app with a webhook URL, whether or not the user has a role in it. */
+export const BASTION_LIFECYCLE_EVENTS = [
+  'user.deleted',
+  'user.expired_unverified',
+  'user.deactivated',
+] as const satisfies readonly BastionWebhookEventName[];
+
+/** Loose shape of a delivery body. Prefer `BastionWebhookEvent`, which narrows on `event`. */
 export interface BastionWebhookPayload {
   event: string;
   tenantSlug?: string;
