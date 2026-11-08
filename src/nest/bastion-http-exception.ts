@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { BastionHttp, type BastionRequestInit } from '../core/bastion-http.js';
-import { BastionErrorCode, BastionHttpError } from '../core/errors.js';
+import { BastionErrorCode, BastionHttpError, type BastionStepUpFactor } from '../core/errors.js';
 
 /**
  * The Nest face of a Bastion error, so the global filter answers the browser
@@ -24,13 +24,15 @@ export class BastionHttpException extends HttpException {
     readonly upstreamMessage: string,
     readonly errors?: string[],
     readonly upstreamCode?: string,
+    /** On `STEP_UP_FAILED`: which credential was wrong (also in the response body). */
+    readonly factor?: BastionStepUpFactor,
   ) {
     const publicCode = code === BastionErrorCode.UPSTREAM ? (upstreamCode ?? statusCode(status)) : code;
     const unavailable = code === BastionErrorCode.UNAVAILABLE || status === 503;
     const publicStatus = status < 500 ? status : unavailable ? 503 : 502;
     const body =
       status < 500
-        ? { code: publicCode, message: upstreamMessage, ...(errors?.length ? { errors } : {}) }
+        ? { code: publicCode, message: upstreamMessage, ...(errors?.length ? { errors } : {}), ...(factor ? { factor } : {}) }
         : unavailable
           ? { code: BastionErrorCode.UNAVAILABLE, message: 'Upstream service unavailable' }
           : { code: BastionErrorCode.UPSTREAM, message: 'Upstream service error' };
@@ -40,7 +42,7 @@ export class BastionHttpException extends HttpException {
   }
 
   static from(err: BastionHttpError): BastionHttpException {
-    return new BastionHttpException(err.code, err.status, err.message, err.errors, err.upstreamCode);
+    return new BastionHttpException(err.code, err.status, err.message, err.errors, err.upstreamCode, err.factor);
   }
 }
 

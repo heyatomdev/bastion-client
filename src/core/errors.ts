@@ -63,10 +63,17 @@ export const BastionErrorCode = {
   CURRENT_PASSWORD_REQUIRED: 'CURRENT_PASSWORD_REQUIRED',
   /** A step-up route was called without `twoFactorCode`. Ask for it; the session is fine. */
   TWO_FACTOR_CODE_REQUIRED: 'TWO_FACTOR_CODE_REQUIRED',
+  /** `POST /auth/2fa/authenticate`: the TOTP/recovery code is wrong. Ask again; the challenge is still valid. */
+  TWO_FACTOR_CODE_INVALID: 'TWO_FACTOR_CODE_INVALID',
+  /** `POST /auth/2fa/authenticate`: the challenge token expired. Start the login again. */
+  TWO_FACTOR_CHALLENGE_EXPIRED: 'TWO_FACTOR_CHALLENGE_EXPIRED',
   UNAVAILABLE: 'UNAVAILABLE',
   UPSTREAM: 'UPSTREAM',
 } as const;
 export type BastionErrorCode = (typeof BastionErrorCode)[keyof typeof BastionErrorCode];
+
+/** Which step-up credential a `STEP_UP_FAILED` refers to. */
+export type BastionStepUpFactor = 'password' | 'second_factor';
 
 /** Messages Bastion already emits as a bare code: passed through unchanged. */
 const CODE_MESSAGES: ReadonlySet<string> = new Set([
@@ -129,6 +136,8 @@ export class BastionHttpError extends Error {
     readonly errors?: string[],
     /** Bastion's own `code` when it is not a `BastionErrorCode` (`NOT_FOUND`, `PASSWORD_TOO_SHORT`, …). */
     readonly upstreamCode?: string,
+    /** On `STEP_UP_FAILED`: which credential was wrong. Absent from an older Bastion. */
+    readonly factor?: BastionStepUpFactor,
   ) {
     super(message);
     this.name = 'BastionHttpError';

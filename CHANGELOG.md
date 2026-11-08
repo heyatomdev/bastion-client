@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+### Breaking
+
+- `verifyWebhookSignature` verifies only [Standard Webhooks](https://www.standardwebhooks.com/) headers. `X-Bastion-Signature-V2` and the legacy `X-Bastion-Signature` are no longer read (Bastion no longer sends them): a delivery without `webhook-id` / `webhook-timestamp` / `webhook-signature` is `{ ok: false, reason: 'missing' }`. Upgrade only once your Bastion sends Standard Webhooks.
+- Removed `allowLegacySignature`, `BASTION_SIGNATURE_HEADER`, `BASTION_SIGNATURE_V2_HEADER`; `VerifyWebhookResult` is now `{ ok: true; version: 'standard'; … }` or a failure.
+
+### Added
+
+- `BastionHttpError.factor` and `BastionHttpException.factor` (`BastionStepUpFactor`: `'password' | 'second_factor'`): which credential a `STEP_UP_FAILED` refers to, parsed from Bastion's error body. `BastionHttpException` also puts it in the response body.
+- `BastionErrorCode.TWO_FACTOR_CODE_INVALID` and `TWO_FACTOR_CHALLENGE_EXPIRED` (`POST /auth/2fa/authenticate`).
+
 ## 1.0.0
 
 Reads both the current Bastion answers and the `{ data }` envelope Bastion 2.0 will send, so you can upgrade before Bastion does.
