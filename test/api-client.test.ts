@@ -159,7 +159,23 @@ describe('BastionHttp — 0.8.0', () => {
     await expect(legacy.http.call('POST', '/x')).rejects.toMatchObject({ code: 'VALIDATION_FAILED', message: 'a is bad, b is bad', errors: ['a is bad', 'b is bad'] });
 
     const stepUp = fakeHttp(() => ({ status: 401, body: { statusCode: 401, code: 'STEP_UP_FAILED', factor: 'password', message: 'Current password is required' } }));
-    await expect(stepUp.http.call('PATCH', '/auth/me/password')).rejects.toMatchObject({ status: 401, code: 'STEP_UP_FAILED', upstreamCode: undefined });
+    await expect(stepUp.http.call('PATCH', '/auth/me/password')).rejects.toMatchObject({ status: 401, code: 'STEP_UP_FAILED', upstreamCode: undefined, factor: 'password' });
+
+    const second = fakeHttp(() => ({ status: 401, body: { code: 'STEP_UP_FAILED', factor: 'second_factor', message: 'Invalid code' } }));
+    await expect(second.http.call('PATCH', '/auth/me/password')).rejects.toMatchObject({ factor: 'second_factor' });
+    const bogus = fakeHttp(() => ({ status: 401, body: { code: 'STEP_UP_FAILED', factor: 'nope', message: 'x' } }));
+    await expect(bogus.http.call('PATCH', '/x')).rejects.toMatchObject({ factor: undefined });
+
+    const twoFa = fakeHttp(() => ({ status: 401, body: { code: 'TWO_FACTOR_CODE_INVALID', message: 'Invalid code' } }));
+    await expect(twoFa.http.call('POST', '/auth/2fa/authenticate')).rejects.toMatchObject({ code: 'TWO_FACTOR_CODE_INVALID', upstreamCode: undefined });
+    const expired = fakeHttp(() => ({ status: 401, body: { code: 'TWO_FACTOR_CHALLENGE_EXPIRED', message: 'Challenge expired' } }));
+    await expect(expired.http.call('POST', '/auth/2fa/authenticate')).rejects.toMatchObject({ code: 'TWO_FACTOR_CHALLENGE_EXPIRED' });
+
+    // New domain codes win over the message regexes ('inactive' would read ACCOUNT_INACTIVE).
+    const inactive = fakeHttp(() => ({ status: 401, body: { code: 'CLIENT_INACTIVE', message: 'Client is inactive' } }));
+    await expect(inactive.http.call('POST', '/auth/client')).rejects.toMatchObject({ code: 'CLIENT_INACTIVE', upstreamCode: undefined });
+    const noUser = fakeHttp(() => ({ status: 404, body: { code: 'USER_NOT_FOUND', message: 'User not found' } }));
+    await expect(noUser.http.call('GET', '/x')).rejects.toMatchObject({ code: 'USER_NOT_FOUND', upstreamCode: undefined });
 
     const coded = fakeHttp(() => ({ status: 409, body: { code: 'CONFLICT', message: 'Email taken' } }));
     await expect(coded.http.call('POST', '/x')).rejects.toMatchObject({ code: 'CONFLICT', errors: undefined });

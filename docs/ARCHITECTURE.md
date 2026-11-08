@@ -132,12 +132,10 @@ stale-on-error finché il vecchio è dentro `exp`.
 
 ## Webhook
 
-`verifyWebhookSignature`: Standard Webhooks (`webhook-id`/`-timestamp`/`-signature`, base64
-HMAC su `id.timestamp.body`, secret UTF-8 come `signStandardWebhook` di nest-common) se anche
-uno solo degli header è presente, altrimenti `X-Bastion-Signature-V2` su timestamp + delivery id
-+ body (fallback per Bastion più vecchi, da togliere quando Bastion smette di mandarlo). Rotazione
-del secret (lista di secret accettati, qualsiasi `v1`). Bastion non manda più la firma legacy solo-body;
-`allowLegacySignature` riapre il replay e va lasciato spento.
+`verifyWebhookSignature`: solo Standard Webhooks (`webhook-id`/`-timestamp`/`-signature`, base64
+HMAC su `id.timestamp.body`, secret UTF-8 come `signStandardWebhook` di nest-common). Rotazione
+del secret (lista di secret accettati, qualsiasi `v1`). Dalla 2.0.0 niente più `X-Bastion-Signature-V2`
+né firma legacy solo-body (`allowLegacySignature` rimosso): senza header Standard Webhooks → `missing`.
 
 ## Test e release
 

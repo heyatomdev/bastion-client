@@ -1,4 +1,4 @@
-import { BastionErrorCode, BastionHttpError, isBastionErrorCode } from './errors.js';
+import { BastionErrorCode, BastionHttpError, isBastionErrorCode, type BastionStepUpFactor } from './errors.js';
 import type { AuditEventInput, TokenResponse } from './types.js';
 
 export interface BastionHttpOptions {
@@ -85,7 +85,7 @@ export class BastionHttp {
 
     if (!res.ok) {
       // Bastion's error body (api.md §3): `{ code, message, errors? }`; older builds put the field errors in `message`.
-      const parsed = ((await res.json().catch(() => null)) ?? {}) as { message?: unknown; code?: unknown; errors?: unknown };
+      const parsed = ((await res.json().catch(() => null)) ?? {}) as { message?: unknown; code?: unknown; errors?: unknown; factor?: unknown };
       const errors = Array.isArray(parsed.errors)
         ? parsed.errors.map(String)
         : Array.isArray(parsed.message)
@@ -107,7 +107,9 @@ export class BastionHttp {
             ? BastionErrorCode.VALIDATION_FAILED
             : undefined;
       const upstreamCode = typeof parsed.code === 'string' && !isBastionErrorCode(parsed.code) ? parsed.code : undefined;
-      throw new BastionHttpError(res.status, message, code, errors, upstreamCode);
+      const factor: BastionStepUpFactor | undefined =
+        parsed.factor === 'password' || parsed.factor === 'second_factor' ? parsed.factor : undefined;
+      throw new BastionHttpError(res.status, message, code, errors, upstreamCode, factor);
     }
     if (res.status === 204) return undefined as T;
     return unwrapData(await res.json().catch(() => undefined)) as T;

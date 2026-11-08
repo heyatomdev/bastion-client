@@ -106,6 +106,12 @@ describe('BastionHttpException', () => {
     expect(e.getResponse()).toEqual({ code: 'VALIDATION_FAILED', message: 'Validation failed', errors: ['x is bad'] });
   });
 
+  it('forwards the step-up factor to the browser body and keeps it on the exception', () => {
+    const e = BastionHttpException.from(new BastionHttpError(401, 'Invalid code', 'STEP_UP_FAILED', undefined, undefined, 'second_factor'));
+    expect(e.factor).toBe('second_factor');
+    expect(e.getResponse()).toEqual({ code: 'STEP_UP_FAILED', message: 'Invalid code', factor: 'second_factor' });
+  });
+
   it('hides a 5xx behind 502 UPSTREAM / 503 UNAVAILABLE, keeping the detail for the log', () => {
     const e500 = BastionHttpException.from(new BastionHttpError(500, 'relation "users" does not exist'));
     expect(e500.getStatus()).toBe(502);

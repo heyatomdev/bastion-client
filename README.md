@@ -161,13 +161,18 @@ Every failed call throws `BastionHttpError` (core) or `BastionHttpException` (Ne
 `INVALID_APP_CONTEXT` (your configuration, not the user), `INVALID_REFRESH_TOKEN`,
 `INVALID_OAUTH_CODE`, `VALIDATION_FAILED`, `STEP_UP_FAILED` (wrong current password or 2FA
 code on a step-up route: the session is fine), `CURRENT_PASSWORD_REQUIRED` and
-`TWO_FACTOR_CODE_REQUIRED` (a step-up field is missing: ask for it), `CONFLICT`,
+`TWO_FACTOR_CODE_REQUIRED` (a step-up field is missing: ask for it),
+`TWO_FACTOR_CODE_INVALID` and `TWO_FACTOR_CHALLENGE_EXPIRED` (2FA login step: wrong code, or
+the challenge expired so login must restart), `CLIENT_INACTIVE` (your API key, not the user),
+`USER_NOT_FOUND`, `CONFLICT`,
 `PROVIDER_TAKEN`, `ALREADY_LINKED`, `RATE_LIMITED`, the age-gate codes (`BIRTH_DATE_REQUIRED`,
 `BIRTH_DATE_INVALID`, `UNDER_MINIMUM_AGE`, `AGE_ALREADY_VERIFIED`, `AGE_GATE_NOT_CONFIGURED`),
 the OAuth codes (`OAUTH_*`), `UNAVAILABLE` (Bastion unreachable or timed out) and `UPSTREAM`.
 
 - A 400 carries the field errors in `errors: string[]`. Show them: `message` is only
   "Validation failed".
+- `STEP_UP_FAILED` carries `factor: 'password' | 'second_factor'` (on the error and, for Nest,
+  in the response body) saying which credential was wrong.
 - A code outside `BastionErrorCode` (e.g. a password-policy code) is on `upstreamCode`.
 
 `BastionHttpException` is safe to let through to the client:
@@ -226,11 +231,9 @@ if (!result.ok) throw new UnauthorizedException(result.reason);
 ```
 
 Checks [Standard Webhooks](https://www.standardwebhooks.com/) headers (`webhook-id`,
-`webhook-timestamp`, `webhook-signature`) when present: HMAC-SHA256 over id + timestamp + body,
-5 min tolerance, secret used as a UTF-8 string, `result.deliveryId` = `webhook-id`. Without them
-it falls back to `X-Bastion-Signature-V2` (same guarantees), so it works against an older Bastion
-too; Bastion will stop sending V2 in a later release. `result.version` says which one matched.
-Leave `allowLegacySignature` off.
+`webhook-timestamp`, `webhook-signature`): HMAC-SHA256 over id + timestamp + body, 5 min
+tolerance, secret used as a UTF-8 string, `result.deliveryId` = `webhook-id`. A delivery without
+them (the retired `X-Bastion-Signature` and `X-Bastion-Signature-V2`) fails with `reason: 'missing'`.
 
 ## Changelog
 
